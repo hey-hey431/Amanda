@@ -445,8 +445,27 @@ module.exports = function(passthrough) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				const voiceChannel = msg.member.voiceChannel;
 				if (!voiceChannel) return msg.channel.send(lang.voiceMustJoin(msg));
+				let stream;
+				if (suffix.startsWith("https://www.friskyradio.com/show")) {
+					let show;
+					let paths = suffix.split("/");
+					try {
+						show = await rp(`https://www.friskyradio.com/api/v2/shows/${paths[4]}/${paths[5]}/${paths[6]}`, {json:true});
+					} catch(e) { return msg.channel.send("There was an error while trying to fetch that show. Please validate the url exists"); }
+					if (show.status != 200) return msg.channel.send(`Frisky returned a non OK status. Cancelling.`);
+					if (show.data.episodes.length > 1) return msg.channel.send(`Soon:tm:`);
+					let episode;
+					try {
+						episode = await rp(`https://www.friskyradio.com/api/v2/mix/${show.data.episodes[0].episode.id}/listen/`, {json:true});
+					} catch(e) { return msg.channel.send(`There was an error while trying to fetch that episode.\n${e}`); }
+					return msg.channel.send(JSON.stringify(episode));
+					if (episode.status != 200) return msg.channel.send(`Frisky returned a non OK status. Cancelling.`);
+					let formed = new URL(episode.data.mp3_url.path);
+					stream = new songTypes.FriskySong(show.data.episodes[0].episode.show_channel_title, [formed.host, formed.pathname]);
+					return handleSong(stream, msg.channel, voiceChannel);
+				}
 				let station = ["frisky", "deep", "chill"].includes(suffix) ? suffix : "frisky";
-				let stream = new songTypes.FriskySong(station);
+				stream = new songTypes.FriskySong(station);
 				return handleSong(stream, msg.channel, voiceChannel);
 			}
 		},
