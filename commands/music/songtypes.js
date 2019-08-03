@@ -185,7 +185,7 @@ module.exports = passthrough => {
 		 * @param {Array<String>} [urlparts]
 		 */
 		constructor(station, urlparts) {
-			if (!["frisky", "deep", "chill"].includes(station) && !url) {
+			if (!["frisky", "deep", "chill"].includes(station) && !urlparts) {
 				throw new Error(`FriskySong station was ${this.station}, expected one of frisky, deep, chill`)
 			}
 			this.station = station
