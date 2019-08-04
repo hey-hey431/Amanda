@@ -182,10 +182,9 @@ module.exports = passthrough => {
 	class FriskySong {
 		/**
 		 * @param {String} station Lowercase station from frisky, deep, chill
-		 * @param {Array<String>} [urlparts]
 		 */
-		constructor(station, urlparts) {
-			if (!["frisky", "deep", "chill"].includes(station) && !url) {
+		constructor(station) {
+			if (!["frisky", "deep", "chill"].includes(station)) {
 				throw new Error(`FriskySong station was ${this.station}, expected one of frisky, deep, chill`)
 			}
 			this.station = station
@@ -194,11 +193,7 @@ module.exports = passthrough => {
 				? ["stream.friskyradio.com", "frisky_mp3_hi"]
 				: this.station == "deep"
 				? ["deep.friskyradio.com", "/friskydeep_aachi"]
-				: this.station == "chill"
-				? ["chill.friskyradio.com", "/friskychill_mp3_high"]
-				: urlparts
-				? [urlparts[0], urlparts[1]]
-				: ["bruh", "bruh"]
+				: ["chill.friskyradio.com", "/friskychill_mp3_high"]
 			this.host = parts[0]
 			this.path = parts[1]
 			this.queue = null
