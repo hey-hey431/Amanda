@@ -3,6 +3,8 @@ const ytdlDiscord = require("ytdl-core-discord");
 const ytdl = require("ytdl-core");
 const net = require("net");
 const rp = require("request-promise");
+const request = require("request");
+const Stream = require("stream");
 
 module.exports = passthrough => {
 	let {reloader} = passthrough
@@ -323,6 +325,23 @@ module.exports = passthrough => {
 		}
 	}
 
+	class PastFriskySong extends FriskySong {
+		/**
+		 * @param {String} station
+		 * @param {String} mp3url
+		 */
+		constructor(station, mp3url) {
+			super (station);
+			this.streamURL = mp3url;
+			let formed = new URL(mp3url);
+			this.host = formed.hostname;
+			this.path = formed.pathname.substring(1)+formed.search;
+		}
+		getStream() {
+			//dafuq do I do here
+		}
+	}
+
 	function makeYTSFromRow(row) {
 		return new YouTubeSong({
 			title: row.name,
@@ -333,7 +352,7 @@ module.exports = passthrough => {
 	}
 
 	// Verify that songs have the right methods
-	[YouTubeSong, FriskySong].forEach(song => {
+	[YouTubeSong, FriskySong, PastFriskySong].forEach(song => {
 		[
 			"getUniqueID", "getUserFacingID", "getError", "getTitle", "getProgress", "getQueueLine", "getLength",
 			"getStream", "getDetails", "destroy", "getProgress", "prepare", "clean", "getRelated", "getSuggested", "showRelated"
@@ -342,5 +361,5 @@ module.exports = passthrough => {
 		})
 	})
 
-	return {YouTubeSong, FriskySong, makeYTSFromRow}
+	return {YouTubeSong, FriskySong, PastFriskySong, makeYTSFromRow}
 }
