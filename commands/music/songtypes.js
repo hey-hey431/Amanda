@@ -2,9 +2,12 @@ const Discord = require("discord.js")
 const ytdlDiscord = require("ytdl-core-discord");
 const ytdl = require("ytdl-core");
 const net = require("net");
+const tls = require("tls")
 const rp = require("request-promise");
 const request = require("request");
 const Stream = require("stream");
+const mm = require("music-metadata")
+const https = require("https")
 
 module.exports = passthrough => {
 	let {reloader} = passthrough
@@ -325,20 +328,117 @@ module.exports = passthrough => {
 		}
 	}
 
-	class PastFriskySong extends FriskySong {
+	class PastFriskySong {
 		/**
 		 * @param {String} station
 		 * @param {String} mp3url
 		 */
-		constructor(station, mp3url) {
-			super (station);
-			this.streamURL = mp3url;
-			let formed = new URL(mp3url);
-			this.host = formed.hostname;
-			this.path = formed.pathname.substring(1)+formed.search;
+		constructor(data, streamURL) {
+			this.connectionPlayFunction = "playStream"
+			this.progressUpdateFrequency = 5000
+			this.lengthSeconds = 0
+			this.preparePromise = null
+			this.canBePaused = true
+			this.data = data
+			this.streamURL = streamURL
+			this.prepare()
+		}
+		_getID() {
+			return this.data.episodes[0].episode.id
+		}
+		_getPathParts() {
+			let url = new URL(this.streamURL)
+			return {host: url.hostname, path: url.pathname+url.search}
+		}
+		getUniqueID() {
+			return "friskypast_"+this._getID()
+		}
+		getUserFacingID() {
+			return this._getID()
+		}
+		getError() {
+			return null
+		}
+		getTitle() {
+			return this.data.episodes[0].episode.title
+		}
+		getProgress(time, paused) {
+			let max = this.lengthSeconds
+			let rightTime = common.prettySeconds(max)
+			let current = Math.round(time/1000)
+			if (current > max) current = max
+			let leftTime = common.prettySeconds(current)
+			let bar = utils.progressBar(35, current, max, paused ? " [PAUSED] " : "")
+			return `\`[ ${leftTime} ${bar} ${rightTime} ]\``
+		}
+		getLength() {
+			return this.lengthSeconds
+		}
+		getQueueLine() {
+			return `**Frisky Radio: ${this.getTitle()}** (${common.prettySeconds(this.getLength())})`
+		}
+		_getTLSSocket(method = "GET", range = null) {
+			let rangeString = ""
+			if (range) rangeString = `Range: bytes=${range[0]}-${range[1]}\r\n`
+			let parts = this._getPathParts()
+			let socket = tls.connect(443, parts.host, {}, () => {
+				socket.write(
+					`${method} ${parts.path} HTTP/1.1\r\n`
+					+`Host: ${parts.host}\r\n`
+					+`User-Agent: Amanda/1.1\r\n`
+					+`Accept: */*\r\n`
+					+rangeString
+					+`Connection: close\r\n`
+					+`\r\n`
+				)
+			})
+			return socket
 		}
 		getStream() {
-			//dafuq do I do here
+			return this.prepare().then(() => this._getTLSSocket())
+		}
+		getDetails() {
+			return "https://www.friskyradio.com/"+this.data.episodes[0].episode.full_url
+		}
+		destroy() {
+			if (this.socket) this.socket.end()
+		}
+		prepare() {
+			if (!this.preparePromise) {
+				return this.preparePromise = rp(this.streamURL, {encoding: null, headers: {Range: "bytes=0-2000"}}).then(response => {
+					mm.parseBuffer(response).then(metadata => {
+						this.lengthSeconds = Math.ceil(metadata.format.duration)
+					})
+				})
+			} else {
+				return this.preparePromise
+			}
+		}
+		clean() {
+		}
+		getRelated() {
+			return this._getRelated()
+		}
+		getSuggested() {
+			return this._getRelated().then(videos => videos[0] ? new YouTubeSong(videos[0].id, undefined, true, videos[0]) : null)
+		}
+		showRelated() {
+			return this._getRelated().then(videos => {
+				if (videos.length) {
+					return new Discord.RichEmbed()
+					.setTitle("Related videos")
+					.setDescription(
+						videos.map((v, i) =>
+							`${i+1}. **${Discord.Util.escapeMarkdown(v.title)}** (${common.prettySeconds(v.length_seconds)})`
+							+`\n — ${v.author}`
+						)
+					)
+					.setColor(0x36393f)
+					.setFooter(`Use "&music related <play|insert> <index>" to queue an item from this list.`)
+				} else {
+					return "No related content available."
+				}
+			})
 		}
 	}
 
@@ -352,7 +452,7 @@ module.exports = passthrough => {
 	}
 
 	// Verify that songs have the right methods
-	[YouTubeSong, FriskySong, PastFriskySong].forEach(song => {
+	;[YouTubeSong, FriskySong, PastFriskySong].forEach(song => {
 		[
 			"getUniqueID", "getUserFacingID", "getError", "getTitle", "getProgress", "getQueueLine", "getLength",
 			"getStream", "getDetails", "destroy", "getProgress", "prepare", "clean", "getRelated", "getSuggested", "showRelated"

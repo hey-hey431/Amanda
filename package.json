@@ -20,6 +20,7 @@
     "gc-profiler": "^1.4.0",
     "jimp": "0.x",
     "mime": "^2.4.4",
+    "music-metadata": "^4.2.1",
     "mysql2": "^1.6.5",
     "node-opus": "0.x",
     "pinski": "https://cadence.moe/friends/pinski.tar.gz",
