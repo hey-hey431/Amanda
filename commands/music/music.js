@@ -278,10 +278,8 @@ module.exports = function(passthrough) {
 				let mode = args[1];
 				let index = parseInt(args[2]);
 				if (mode && (mode[0] == "p" || mode[0] == "i") && index) {
-					let related = await queue.songs[0].getRelated()
-					let selection = related[index-1]
-					if (!selection) return msg.channel.send("The syntax is `&music related <play|insert> <index>`. Your index was invalid.")
-					let song = new songTypes.YouTubeSong(selection.id, undefined, true, selection)
+					let song = await queue.songs[0].getSuggested(index-1)
+					if (!song) return msg.channel.send("The syntax is `&music related <play|insert> <index>`. Your index was invalid.")
 					handleSong(song, msg.channel, voiceChannel, mode[0] == "i", msg)
 				} else {
 					let content = await queue.songs[0].showRelated()
@@ -376,18 +374,13 @@ module.exports = function(passthrough) {
 				const voiceChannel = msg.member.voiceChannel;
 				if (!voiceChannel) return msg.channel.send(lang.voiceMustJoin(msg));
 				if (suffix.startsWith("https://www.friskyradio.com/show")) {
-					let show;
 					let paths = suffix.split("/");
 					try {
-						show = await rp(`https://www.friskyradio.com/api/v2/shows/${paths[4]}/${paths[5]}/${paths[6]}`, {json:true, headers: {Host: "www.friskyradio.com", "User-Agent": "Amanda", Accept: "*/*", "Accept-Language": "en-US,en;q=0.5", Referer: suffix, Connection: "keep-alive", Cookie: `guest_id=Amanda${Date.now()}; playerVolume=100; exp_last_visit=${Date.now()}; exp_last_activity=${Date.now()}; PHPSESSID=Amanda${Date.now()}; exp_tracker=lolno`}});
-					} catch(e) { return msg.channel.send("Couldn't fetch that episode. Are you sure the URL is correct?"); }
-					if (show.data.episodes.length > 1) return msg.channel.send(`Soon:tm:`);
-					let episode;
-					try {
-						episode = await rp(`https://www.friskyradio.com/api/v2/mix/${show.data.episodes[0].episode.id}/listen/`, {json:true, headers: {Host: "www.friskyradio.com", "User-Agent": "Amanda", Accept: "*/*", "Accept-Language": "en-US,en;q=0.5", Referer: suffix, Connection: "keep-alive", Cookie: `guest_id=Amanda${Date.now()}; playerVolume=100; exp_last_visit=${Date.now()}; exp_last_activity=${Date.now()}; PHPSESSID=Amanda${Date.now()}; exp_tracker=lolno`}});
-					} catch(e) { return msg.channel.send(`Couldn't fetch URLs for that episode.\n${e}`); }
-					if (episode.status != 200) return msg.channel.send(`Frisky returned a non OK status. Cancelling.`);
-					let song = new songTypes.PastFriskySong(show.data, episode.data.mp3_url.path);
+						var episode = await rp(`https://www.friskyradio.com/api/v2/shows/${paths[4]}/${paths[5]}/${paths[6]}`, {json:true})
+					} catch(e) {
+						return msg.channel.send("Couldn't fetch that episode. Are you sure the URL is correct?")
+					}
+					let song = new songTypes.PastFriskySong(episode.data);
 					return handleSong(song, msg.channel, voiceChannel);
 				} else {
 					let station = ["frisky", "deep", "chill"].includes(suffix) ? suffix : "frisky";

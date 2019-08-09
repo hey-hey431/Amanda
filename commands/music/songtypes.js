@@ -1,15 +1,16 @@
 const Discord = require("discord.js")
-const ytdlDiscord = require("ytdl-core-discord");
-const ytdl = require("ytdl-core");
-const net = require("net");
+const ytdlDiscord = require("ytdl-core-discord")
+const ytdl = require("ytdl-core")
+const net = require("net")
 const tls = require("tls")
-const rp = require("request-promise");
+const rp = require("request-promise")
 const mm = require("music-metadata")
 const events = require("events")
 const stream = require("stream")
+const https = require("https")
 
 // @ts-ignore
-require("../../types.js");
+require("../../types.js")
 
 /**
  * @param {PassthroughType} passthrough
@@ -36,6 +37,9 @@ module.exports = passthrough => {
 				length: this.getLength(),
 				thumbnail: this.getThumbnail()
 			}
+		}
+		destroy() {
+			this.events.removeAllListeners()
 		}
 	}
 
@@ -121,12 +125,16 @@ module.exports = passthrough => {
 		getRelated() {
 			return this._getRelated()
 		}
-		getSuggested(playedSongs) {
-			return this._getRelated().then(videos => {
+		async getSuggested(index, playedSongs) {
+			let videos = await this._getRelated()
+			if (index != undefined) {
+				if (!videos[index]) return null
+				return new YouTubeSong(videos[index].id, undefined, true, videos[index])
+			} else {
 				let filtered = videos.filter(v => !playedSongs.has("youtube_"+v.id))
 				if (filtered[0]) return new YouTubeSong(filtered[0].id, undefined, true, filtered[0])
 				else return null
-			})
+			}
 		}
 		showRelated() {
 			return this._getRelated().then(videos => {
@@ -193,7 +201,7 @@ module.exports = passthrough => {
 		}
 		destroy() {
 			this._deleteCache()
-			this.events.removeAllListeners()
+			WebSong.prototype.destroy.call(this)
 		}
 		prepare() {
 			this._getInfo(true)
@@ -327,6 +335,7 @@ module.exports = passthrough => {
 		}
 		destroy() {
 			this._stopTitleUpdates()
+			WebSong.prototype.destroy.call(this)
 		}
 		_getStationTitle() {
 			return this.station[0].toUpperCase()+this.station.slice(1)
@@ -391,27 +400,53 @@ module.exports = passthrough => {
 		}
 	}
 
-	class PastFriskySong {
-		/**
-		 * @param {String} station
-		 * @param {String} mp3url
-		 */
-		constructor(data, streamURL) {
+	class PastFriskySong extends WebSong {
+		constructor(data) {
+			super()
+			this.data = data
 			this.connectionPlayFunction = "playStream"
+			this.canBePaused = true
 			this.progressUpdateFrequency = 5000
 			this.lengthSeconds = 0
-			this.preparePromise = null
-			this.canBePaused = true
-			this.data = data
-			this.streamURL = streamURL
+			this.connection = null
+			this.urlCache = new utils.AsyncValueCache(() => this._getURL(), 1000*60*60)
+			this.relatedCache = new utils.AsyncValueCache(() => this._getRelated())
+			this.preparePromise = new utils.AsyncValueCache(() => this._prepare())
 			this.prepare()
+		}
+		_dreamCatcher(error, label) {
+			console.error("Frisky past dream catcher, stream error")
+			console.error(label)
+			console.error(error)
+			if (this.connection) this.connection.emit("error", error)
+			this.error = error
 		}
 		_getID() {
 			return this.data.episodes[0].episode.id
 		}
-		_getPathParts() {
-			let url = new URL(this.streamURL)
+		async _getPathParts() {
+			let streamURL = await this.urlCache.get()
+			let url = new URL(streamURL)
 			return {host: url.hostname, path: url.pathname+url.search}
+		}
+		_getURL() {
+			return rp(`https://www.friskyradio.com/api/v2/mix/${this.data.episodes[0].episode.id}/listen/`, {
+				json: true,
+				headers: {
+					"User-Agent": "Amanda (1.1)",
+					"Cookie": `guest_id=Amanda`
+				}
+			})
+			.then(
+			/** @param {FriskyMixResponse} data */
+			data => {
+				return data.data.mp3_url.path
+			}).catch(e => {
+				console.error("Frisky past mix request failed.")
+				console.error(e)
+				this.error = "Frisky past mix request failed. Details are in the logs."
+				return null
+			})
 		}
 		getUniqueID() {
 			return "friskypast_"+this._getID()
@@ -440,78 +475,95 @@ module.exports = passthrough => {
 		getQueueLine() {
 			return `**Frisky Radio: ${this.getTitle()}** (${common.prettySeconds(this.getLength())})`
 		}
-		_getTLSSocket(method = "GET", range = null) {
-			let rangeString = ""
-			if (range) rangeString = `Range: bytes=${range[0]}-${range[1]}\r\n`
-			let parts = this._getPathParts()
-			let socket = tls.connect(443, parts.host, {}, () => {
-				socket.write(
-					`${method} ${parts.path} HTTP/1.1\r\n`
-					+`Host: ${parts.host}\r\n`
-					+`User-Agent: Amanda/1.1\r\n`
-					+`Accept: */*\r\n`
-					+rangeString
-					+`Connection: close\r\n`
-					+`\r\n`
-				)
+		_getConnection() {
+			return new Promise(async resolve => {
+				let parts = await this._getPathParts()
+				let request = https.get({
+					host: parts.host,
+					path: parts.path,
+					headers: {
+						"User-Agent": "Amanda/1.1",
+						"Accept": "*/*",
+						"Connection": "close"
+					}
+				}, res => {
+					res.request = request
+					res.on("error", e => this._dreamCatcher(e, "getConnection res"))
+					resolve(res)
+				})
+				request.on("error", e => this._dreamCatcher(e, "getConnection req"))
 			})
-			return socket
 		}
 		getStream() {
-			return this.prepare().then(() => this._getTLSSocket())
+			return this.prepare().then(() => this._getConnection()).then(connection => this.connection = connection)
 		}
 		getDetails() {
 			return "https://www.friskyradio.com/"+this.data.episodes[0].episode.full_url
 		}
 		destroy() {
-			if (this.socket) this.socket.end()
+			if (this.connection) this.connection.connection.end()
+			WebSong.prototype.destroy.call(this)
 		}
 		prepare() {
-			if (!this.preparePromise) {
-				return this.preparePromise = rp(this.streamURL, {encoding: null, headers: {Range: "bytes=0-2000"}}).then(response => {
-					mm.parseBuffer(response).then(metadata => {
-						this.lengthSeconds = Math.ceil(metadata.format.duration)
-					})
-				})
-			} else {
-				return this.preparePromise
-			}
+			return this.preparePromise.get()
+		}
+		async _prepare() {
+			let connection = await this._getConnection()
+			let metadata = await mm.parseStream(connection)
+			this.lengthSeconds = Math.ceil(metadata.format.duration)
+			this.events.emit("update")
+			connection.request.abort()
 		}
 		clean() {
+			this.relatedCache.clear()
+		}
+		async _getRelated() {
+			let urlID = this.data.show.url
+			let currentGenre = this.data.episodes[0].episode.genre
+			let archive = await rp(`https://www.friskyradio.com/api/v2/shows/${urlID}/archive`, {json: true})
+			archive = archive.data.items.filter(item => {
+				return item.episodes[0].episode.id != this.data.episodes[0].episode.id
+			}).map(item => {
+				item.show = this.data.show
+				let newGenre = item.episodes[0].episode.genre
+				item.genre_match = currentGenre.reduce((acc, cur) => (acc + newGenre.includes(cur)), 0) - Math.abs(currentGenre.length - newGenre.length)/2
+				return item
+			}).sort((a, b) => (b.genre_match - a.genre_match))
+			return archive
 		}
 		getRelated() {
-			return this._getRelated()
+			return this.relatedCache.get()
 		}
-		getSuggested() {
-			return this._getRelated().then(videos => videos[0] ? new YouTubeSong(videos[0].id, undefined, true, videos[0]) : null)
+		async getSuggested(index = 0) {
+			let related = await this.relatedCache.get()
+			if (!related[index]) return null
+			let song = new PastFriskySong(related[index])
+			return song
 		}
-		showRelated() {
-			return this._getRelated().then(videos => {
-				if (videos.length) {
-					return new Discord.RichEmbed()
-					.setTitle("Related videos")
-					.setDescription(
-						videos.map((v, i) =>
-							`${i+1}. **${Discord.Util.escapeMarkdown(v.title)}** (${common.prettySeconds(v.length_seconds)})`
-							+`\n — ${v.author}`
-						)
-					)
-					.setColor(0x36393f)
-					.setFooter(`Use "&music related <play|insert> <index>" to queue an item from this list.`)
-				} else {
-					return "No related content available."
-				}
-			})
+		async showRelated() {
+			let related = await this.relatedCache.get()
+			if (related.length) {
+				return new Discord.RichEmbed()
+				.setTitle("Related episodes")
+				.setDescription(
+					related.map((item, index) => {
+						let duration = +item.episodes[0].episode.duration[1]
+						return `${index+1}. **${item.episodes[0].episode.title}** [${item.episodes[0].episode.genre.join(", ")}] (~${duration} hour${duration == 1 ? "" : "s"})`
+					}).join("\n")
+				)
+				.setColor(0x36393f)
+				.setFooter(`Use "&music related <play|insert> <index>" to queue an item from this list.`)
+			} else {
+				return "No related content available."
+			}
 		}
-	}
-
-	function makeYTSFromRow(row) {
-		return new YouTubeSong({
-			title: row.name,
-			video_id: row.videoID,
-			length_seconds: row.length,
-			author: {name: "?"}
-		}, false)
+		getThumbnail() {
+			return {
+				src: this.data.occurrence.image.url,
+				width: 650,
+				height: 340
+			}
+		}
 	}
 
 	// Verify that songs have the right methods
@@ -524,7 +576,7 @@ module.exports = passthrough => {
 		})
 	})
 
-	return {YouTubeSong, FriskySong, PastFriskySong, makeYTSFromRow}
+	return {YouTubeSong, FriskySong, PastFriskySong}
 }
 
 /**
@@ -626,3 +678,13 @@ module.exports = passthrough => {
  * @property {Number} thumb_height
  * @property {Number} thumb_filesize
  */
+
+ /**
+  * @typedef {Object} FriskyMixResponse
+  * @property {Object} data
+  * @property {Boolean} data.success
+  * @property {String} data.error
+  * @property {Object} data.mp3_url
+  * @property {Number} data.mp3_url.expires
+  * @property {String} data.mp3_url.path
+  */

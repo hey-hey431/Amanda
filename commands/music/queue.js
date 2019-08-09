@@ -324,12 +324,9 @@ module.exports = passthrough => {
 				} else if (!this.auto) {
 					this.dissolve()
 				} else {
-					justPlayed.getSuggested(this.playedSongs).then(song => {
+					justPlayed.getSuggested(undefined, this.playedSongs).then(song => {
 						if (song) {
-							let isQueueStillEmpty = !this.songs[0]
-							this.songs.push(song)
-							this.events.emit("queueAdd", song, -1)
-							if (isQueueStillEmpty) this.play()
+							this.addSong(song)
 						} else {
 							this.dissolve()
 						}
