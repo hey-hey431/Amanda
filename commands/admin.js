@@ -1,6 +1,9 @@
 const Discord = require("discord.js");
 const rp = require("request-promise");
+const util = require("util");
+const path = require("path");
 
+// @ts-ignore
 require("../types.js");
 
 /**
@@ -21,17 +24,13 @@ module.exports = function(passthrough) {
 			description: "Executes arbitrary JavaScript in the bot process. Requires bot owner permissions",
 			aliases: ["evaluate", "eval"],
 			category: "admin",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function (msg, suffix) {
 				let allowed = await utils.hasPermission(msg.author, "eval");
 				if (allowed) {
 					if (!suffix) return msg.channel.send(`You didn't provide any input to evaluate, silly`);
 					let result;
 					let depth = suffix.split("--depth:")[1]
-					depth?depth=depth.substring().split(" ")[0]:undefined;
+					depth?depth=depth.substring(0).split(" ")[0]:undefined;
 					if (!depth) depth = 0;
 					else {
 						depth = Math.floor(Number(depth));
@@ -45,7 +44,7 @@ module.exports = function(passthrough) {
 					}
 					let output = await utils.stringify(result, depth);
 					let nmsg = await msg.channel.send(output.replace(new RegExp(config.bot_token, "g"), "No"));
-					let menu = nmsg.reactionMenu([{ emoji: "🗑", allowedUsers: [msg.author.id], remove: "message" }]);
+					let menu = new utils.ReactionMenu(nmsg, [{ emoji: "🗑", allowedUsers: [msg.author.id], remove: "message" }]);
 					return setTimeout(() => menu.destroy(true), 5*60*1000);
 				} else return;
 			}
@@ -55,10 +54,6 @@ module.exports = function(passthrough) {
 			description: "Executes a shell operation",
 			aliases: ["execute", "exec"],
 			category: "admin",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function (msg, suffix) {
 				let allowed = await utils.hasPermission(msg.author, "eval");
 				if (!allowed) return;
@@ -70,10 +65,10 @@ module.exports = function(passthrough) {
 					else if (stdout) result = stdout;
 					else if (stderr) result = stderr;
 					else result = "No output";
-					result = result.toString("utf8");
-					if (result.length >= 2000) result = result.slice(0, 1995)+"…";
+					result = result.toString();
+					if (result.length >= 2000) result = result.slice(0, 1993)+"…";
 					let nmsg = await msg.channel.send(`\`\`\`\n${result}\n\`\`\``);
-					let menu = nmsg.reactionMenu([{ emoji: "🗑", allowedUsers: [msg.author.id], remove: "message" }]);
+					let menu = new utils.ReactionMenu(nmsg, [{ emoji: "🗑", allowedUsers: [msg.author.id], remove: "message" }]);
 					return setTimeout(() => menu.destroy(true), 5*60*1000);
 				});
 				return;
@@ -84,10 +79,6 @@ module.exports = function(passthrough) {
 			description: "Awards a specific user ",
 			aliases: ["award"],
 			category: "admin",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let allowed = await utils.hasPermission(msg.author, "eval");
 				if (!allowed) return msg.channel.sendNopeMessage();

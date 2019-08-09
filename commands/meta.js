@@ -8,6 +8,7 @@ const simpleGit = require("simple-git")(__dirname);
 const profiler = require("gc-profiler");
 const util = require("util");
 
+// @ts-ignore
 require("../types.js");
 
 /**
@@ -22,12 +23,15 @@ module.exports = function(passthrough) {
 	let lang = require("../modules/lang.js")(passthrough);
 	reloader.useSync("./modules/lang.js", lang);
 
-	sendStatsTimeout = setTimeout(sendStatsTimeoutFunction, 1000*60*60 - (Date.now() % (1000*60*60)));
+	let sendStatsTimeout = setTimeout(sendStatsTimeoutFunction, 1000*60*60 - (Date.now() % (1000*60*60)));
 	console.log(`added timeout sendStatsTimeout`);
 	function sendStatsTimeoutFunction() {
 		sendStats();
 		sendStatsTimeout = setTimeout(sendStatsTimeoutFunction, 1000*60*60);
 	}
+	/**
+	 * @param {Discord.Message} [msg]
+	 */
 	async function sendStats(msg) {
 		console.log("Sending stats...");
 		let now = Date.now();
@@ -43,7 +47,7 @@ module.exports = function(passthrough) {
 		return console.log("Sent stats.", new Date().toUTCString());
 	}
 
-	dailyTimeout = setTimeout(setDailyStatsTimeout, 1000*60*60*24 - (Date.now() % (1000*60*60*24)));
+	let dailyTimeout = setTimeout(setDailyStatsTimeout, 1000*60*60*24 - (Date.now() % (1000*60*60*24)));
 	console.log(`added timeout dailyTimeout`);
 	function setDailyStatsTimeout() {
 		setDailyStats();
@@ -73,6 +77,10 @@ module.exports = function(passthrough) {
 	profileStorage.save("badge-none", "file", "./images/36393E.png");
 	profileStorage.get("badge-none").then(badge => badge.resize(50, 50));
 
+	/**
+	 * @param {Discord.User} user
+	 * @param {{waifu?: {id: String}, claimer?: {id: String}}} info
+	 */
 	function getHeartType(user, info) {
 		// Full hearts for Amanda! Amanda loves everyone.
 		if (user.id == client.user.id) return "full";
@@ -91,14 +99,10 @@ module.exports = function(passthrough) {
 
 	commands.assign({
 		"statistics": {
-			usage: "<music, games>",
+			usage: "[music|games]",
 			description: "Displays detailed statistics",
 			aliases: ["statistics", "stats"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let ram = process.memoryUsage();
 				let embed = new Discord.RichEmbed().setColor("36393E");
@@ -110,7 +114,7 @@ module.exports = function(passthrough) {
 						`**❯ Songs Enqueued:**\n${queueManager.storage.reduce((acc, cur) => acc+cur.songs.length, 0)} songs`, true)
 					.addField("­",
 						`**❯ Voice Connections:**\n${client.voiceConnections.size} connections\n`+
-						`**❯ Users Listening:**\n${queueManager.storage.reduce((acc, cur) => acc+cur.voiceChannel.members.filter(m => m.user && !m.user.bot).size, 0)}`, true)
+						`**❯ Users Listening:**\n${queueManager.storage.reduce((acc, cur) => acc+cur.voiceChannel.members.filter(m => m.user && !m.user.bot).size, 0)} users (non bots)`, true)
 					return msg.channel.send(utils.contentify(msg.channel, embed));
 				} else if (suffix.toLowerCase() == "games") {
 					embed
@@ -118,7 +122,7 @@ module.exports = function(passthrough) {
 						`**❯ Daily Games Played:**\n${gameManager.gamesPlayed} games\n`+
 						`**❯ Games Playing:**\n${gameManager.storage.size} games`, true)
 					.addField("­",
-						`**❯ Users Playing:**\n${gameManager.storage.reduce((acc, cur) => acc+cur.receivedAnswers?cur.receivedAnswers.size:0, 0)}`, true)
+						`**❯ Users Playing:**\n${gameManager.storage.reduce((acc, cur) => acc+cur.receivedAnswers?cur.receivedAnswers.size:0, 0)} users (non bots)`, true)
 					return msg.channel.send(utils.contentify(msg.channel, embed));
 				} else if (suffix.toLowerCase() == "gc") {
 					let allowed = await utils.hasPermission(msg.author, "eval");
@@ -151,13 +155,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"ping": {
-			usage: "none",
+			usage: "None",
 			description: "Gets latency to Discord",
 			aliases: ["ping", "pong"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function (msg) {
 				let array = ["So young... So damaged...", "We've all got no where to go...", "You think you have time...", "Only answers to those who have known true despair...", "Hopeless...", "Only I know what will come tomorrow...", "So dark... So deep... The secrets that you keep...", "Truth is false...", "Despair..."];
 				let message = array.random();
@@ -167,41 +168,32 @@ module.exports = function(passthrough) {
 			}
 		},
 		"forcestatupdate": {
-			usage: "none",
+			usage: "None",
 			description: "",
 			aliases: ["forcestatupdate"],
 			category: "admin",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: function(msg) {
 				sendStats(msg);
 			}
 		},
 		"restartnotify": {
-			usage: "none",
+			usage: "None",
 			description: "",
 			aliases: ["restartnotify"],
 			category: "admin",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function(msg) {
 				let permissions;
-				if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				await utils.sql.all("REPLACE INTO RestartNotify VALUES (?, ?, ?)", [client.user.id, msg.author.id, msg.channel.id]);
 				if (permissions && !permissions.has("ADD_REACTIONS")) return msg.channel.send(`Alright. You'll be notified of the next time I restart`);
 				msg.react("✅");
 			}
 		},
 		"invite": {
-			usage: "none",
+			usage: "None",
 			description: "Sends the bot invite link to you via DMs",
 			aliases: ["invite", "inv"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function(msg) {
 				let embed = new Discord.RichEmbed().setDescription("**I've been invited?**\n*Be sure that you have manage server permissions on the server you would like to invite me to*").setTitle("Invite Link").setURL("https://discord-bots.ga/amanda").setColor("36393E")
 				try {
@@ -212,24 +204,21 @@ module.exports = function(passthrough) {
 			}
 		},
 		"info": {
-			usage: "none",
+			usage: "None",
 			description: "Displays information about Amanda",
 			aliases: ["info", "inf"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function(msg) {
 				let [c1, c2] = await Promise.all([
-					client.fetchUser("320067006521147393"),
-					client.fetchUser("176580265294954507")
+					client.fetchUser("320067006521147393", true),
+					client.fetchUser("176580265294954507", true)
 				]);
 				let embed = new Discord.RichEmbed()
 					.setAuthor("Amanda", client.user.smallAvatarURL)
 					.setDescription("Thank you for choosing me as your companion! :heart:\nHere's a little bit of info about me...")
 					.addField("Creators",
-						`${c1.tag} <:bravery:479939311593324557> <:EarlySupporterBadge:585638218255564800> <:NitroBadge:421774688507920406> <:boostlvl2:582555022471069726>\n`+
-						`${c2.tag} <:brilliance:479939329104412672> <:EarlySupporterBadge:585638218255564800> <:NitroBadge:421774688507920406> <:boostlvl2:582555022471069726>`)
+						`${c1.tag} <:bravery:479939311593324557> <:EarlySupporterBadge:585638218255564800> <:NitroBadge:421774688507920406> <:boostlvl3:582555022508687370>\n`+
+						`${c2.tag} <:brilliance:479939329104412672> <:EarlySupporterBadge:585638218255564800> <:NitroBadge:421774688507920406> <:boostlvl3:582555022508687370>`)
 					.addField("Code", `[node.js](https://nodejs.org/) ${process.version} + [discord.js](https://www.npmjs.com/package/discord.js) ${Discord.version}`)
 					.addField("Links", `Visit Amanda's [website](${config.website_protocol}://${config.website_domain}/) or her [support server](https://discord.gg/zhthQjH)\nWanna donate? Check out her [Patreon](https://www.patreon.com/papiophidian) or make a 1 time donation through [PayPal](https://paypal.me/papiophidian).`)
 					.setColor("36393E");
@@ -237,13 +226,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"donate": {
-			usage: "none",
+			usage: "None",
 			description: "Get information on how to donate",
 			aliases: ["donate", "patreon"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: function(msg) {
 				let embed = new Discord.RichEmbed().setColor("36393E").setTitle("Thinking of donating? :heart:")
 				.setDescription("I'm excited that you're possibly interested in supporting my creators. If you're interested in making monthly donations, you may at [Patreon](https://www.patreon.com/papiophidian) or If you're interested in a one time donation, you can donate through [PayPal](https://paypal.me/papiophidian)\n\nAll money donated will go back into development. Access to features will also not change regardless of your choice but you will recieve a donor role if you join my [Support Server](https://discord.gg/zhthQjH) and get a distinguishing donor badge on &profile");
@@ -251,13 +237,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"commits": {
-			usage: "none",
+			usage: "None",
 			description: "Gets the latest git commits to Amanda",
 			aliases: ["commits", "commit", "git"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function(msg) {
 				msg.channel.sendTyping();
 				const limit = 5;
@@ -300,13 +283,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"privacy": {
-			usage: "none",
+			usage: "None",
 			description: "Details Amanda's privacy statement",
 			aliases: ["privacy"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function(msg) {
 				let embed = new Discord.RichEmbed().setAuthor("Privacy").setDescription("Amanda may collect basic user information. This data includes but is not limited to usernames, discriminators, profile pictures and user identifiers also known as snowflakes. This information is exchanged solely between services related to the improvement or running of Amanda and [Discord](https://discordapp.com/terms). It is not exchanged with any other providers. That's a promise. If you do not want your information to be used by the bot, remove it from your servers and do not use it").setColor("36393E")
 				try {
@@ -317,14 +297,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"user": {
-			usage: "<user>",
+			usage: "[user]",
 			description: "Provides information about a user",
 			aliases: ["user"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let user, member;
 				if (msg.channel.type == "text") {
@@ -347,7 +323,7 @@ module.exports = function(passthrough) {
 					if (user.presence.game.details) game += `<:RichPresence:477313641146744842>\nPlaying ${user.presence.game.details}`;
 					status =`<:streaming:606815351967318019>`;
 				} else if (user.presence.game) {
-					game = user.presencePrefix+" **"+user.presence.game.name+"**";
+					game = user.activityPrefix+" **"+user.presence.game.name+"**";
 					if (user.presence.game.details) game += `<:RichPresence:477313641146744842>\n${user.presence.game.details}`;
 					if (user.presence.game.state && user.presence.game.name == "Spotify") game += `\nby ${user.presence.game.state}`;
 					else if (user.presence.game.state) game += `\n${user.presence.game.state}`;
@@ -361,17 +337,13 @@ module.exports = function(passthrough) {
 			}
 		},
 		"avatar": {
-			usage: "<user>",
+			usage: "[user]",
 			description: "Gets a user's avatar",
 			aliases: ["avatar", "pfp"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let user, member, permissions;
-				if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (msg.channel.type == "text") {
 					member = await msg.guild.findMember(msg, suffix, true);
 					if (member) user = member.user;
@@ -389,15 +361,11 @@ module.exports = function(passthrough) {
 			description: "Makes an emoji bigger",
 			aliases: ["wumbo"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: function(msg, suffix) {
 				let permissions;
-				if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (!suffix) return msg.channel.send(lang.input.invalid(msg, "emoji"));
-				let emoji = client.parseEmoji(suffix);
+				let emoji = Discord.Util.parseEmoji(suffix);
 				if (emoji == null) return msg.channel.send(lang.input.invalid(msg, "emoji"));
 				let embed = new Discord.RichEmbed()
 					.setImage(emoji.url)
@@ -407,17 +375,13 @@ module.exports = function(passthrough) {
 			}
 		},
 		"profile": {
-			usage: "<user>",
+			usage: "[user]",
 			description: "Get profile information about someone",
 			aliases: ["profile"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let user, member, permissions;
-				if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (permissions && !permissions.has("ATTACH_FILES")) return msg.channel.send(lang.permissionDeniedGeneric("attach files"));
 				if (msg.channel.type == "text") {
 					member = await msg.guild.findMember(msg, suffix, true);
@@ -470,17 +434,13 @@ module.exports = function(passthrough) {
 			}
 		},
 		"settings": {
-			usage: "<self|server> <view|setting name> <value>",
+			usage: "<self|server> <view|setting name> [value]",
 			description: "Modify settings Amanda will use for yourself or server wide",
 			aliases: ["settings"],
 			category: "configuration",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
-				let args = suffix.split(" ");
-				if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
+				let args = suffix.split(" "), permissions;
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (msg.channel.type == "dm") {
 					if (args[0].toLowerCase() == "server") return msg.channel.send(`You cannot modify a server's settings if you don't use the command in a server`);
 				}
@@ -526,7 +486,7 @@ module.exports = function(passthrough) {
 
 				let setting = settings[settingName];
 				if (!setting) return msg.channel.send(
-					"Command syntax is `&settings <scope> <name> <value>`. "
+					`Command syntax is \`&settings ${this.usage}\`. `
 					+"Your value for `name` was incorrect, it must be one of: "
 					+Object.keys(settings).filter(k => settings[k].scope.includes(scope)).map(k => "`"+k+"`").join(", ")
 				);
@@ -617,7 +577,7 @@ module.exports = function(passthrough) {
 				} else if (setting.type == "string") {
 					let value = args[2].toLowerCase();
 					if (value.length > 50) return msg.channel.send("That setting value is too long. It must not be more than 50 characters.");
-					await utils.sql.all("REPLACE INTO "+tableName+" (keyID, setting, value) VALUES (?, ?, ?)", [keyID, settingName, value_result]);
+					await utils.sql.all("REPLACE INTO "+tableName+" (keyID, setting, value) VALUES (?, ?, ?)", [keyID, settingName, value]);
 					return msg.channel.send("Setting updated.");
 
 				} else {
@@ -626,16 +586,13 @@ module.exports = function(passthrough) {
 			}
 		},
 		"help": {
-			usage: "<command>",
+			usage: "[command]",
 			description: "Your average help command",
 			aliases: ["help", "h", "commands", "cmds"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function (msg, suffix) {
 				let embed, permissions;
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (suffix) {
 					suffix = suffix.toLowerCase();
 					if (suffix == "music" || suffix == "m") {
@@ -714,13 +671,18 @@ module.exports = function(passthrough) {
 								.setColor("36393E")
 								if (permissions && permissions.has("ADD_REACTIONS")) embed.setFooter("Click the reaction for a mobile-compatible view.");
 								send("dm").then(mobile).catch(() => send("channel").then(mobile));
+								/**
+								 * @param {Discord.Message} message
+								 */
 								function mobile(message) {
 									let mobileEmbed = new Discord.RichEmbed()
 									.setAuthor(`Command Category: ${suffix}`)
 									.setDescription(cat.map(c => `**${commands.get(c).aliases[0]}**\n${commands.get(c).description}`).join("\n\n"))
 									.setColor("36393E")
-									let content = "";
-									if (msg.channel.type != "dm") permissions = message.channel.permissionsFor(client.user);
+									let content;
+									if (msg.channel.type != "dm") {
+										if (message.channel instanceof Discord.TextChannel) permissions = message.channel.permissionsFor(client.user);
+									}
 									if (!permissions || permissions.has("EMBED_LINKS")) content = mobileEmbed;
 									else {
 										function addPart(value) {
@@ -734,7 +696,7 @@ module.exports = function(passthrough) {
 										addPart(mobileEmbed.fields && mobileEmbed.fields.map(f => f.name+"\n"+f.value).join("\n"));
 										addPart(mobileEmbed.footer && mobileEmbed.footer.text);
 									}
-									let menu = message.reactionMenu([{emoji: "📱", ignore: "total", actionType: "edit", actionData: content}]);
+									let menu = new utils.ReactionMenu(message, [{emoji: "📱", ignore: "total", actionType: "edit", actionData: content}]);
 									setTimeout(() => menu.destroy(true), 5*60*1000);
 								}
 							} else {
@@ -756,7 +718,7 @@ module.exports = function(passthrough) {
 				function send(where) {
 					return new Promise((resolve, reject) => {
 						let target = where == "dm" ? msg.author : msg.channel;
-						if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
+						if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 						if (!permissions || permissions.has("EMBED_LINKS")) {
 							var promise = target.send(embed);
 						} else {

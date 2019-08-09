@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const rp = require("request-promise");
 const Discord = require("discord.js");
 
+// @ts-ignore
 require("../types.js");
 
 let responses = ["That's not strange at all...", "W-What? Why?", "I find it strange that you tried to do that...", "Ok then...", "Come on... Don't make yourself look like an idiot...", "Why even try?", "Oh...", "You are so weird...", "<:NotLikeCat:411364955493761044>"];
@@ -19,19 +20,19 @@ module.exports = function(passthrough) {
 	let lang = require("../modules/lang.js")(passthrough);
 	reloader.useSync("./modules/lang.js", lang);
 
+	/**
+	 * @type {Object.<string, {usage: String, description: String, aliases: Array<String>, category: String, process: (msg: Discord.Message, suffix?: String) => any}>}
+	 */
 	let cmds = {
 		"ship": {
-			usage: "<mention 1> <mention 2>",
+			usage: "<user 1> <user 2>",
 			description: "Ships two people",
 			aliases: ["ship"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
-				let permissions = msg.channel.permissionsFor(client.user);
+				let permissions;
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (!permissions.has("ATTACH_FILES")) return msg.channel.send(lang.permissionDeniedGeneric("attach files"));
 				suffix = suffix.replace(/ +/g, " ");
 				let args = suffix.split(" ");
@@ -74,14 +75,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"waifu": {
-			usage: "<user>",
+			usage: "[user]",
 			description: "Gets the waifu information about yourself or a user",
 			aliases: ["waifu"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let member = await msg.guild.findMember(msg, suffix, true);
@@ -98,14 +95,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"claim": {
-			usage: "<amount> <user>",
+			usage: "<amount: Number|all> <user>",
 			description: "Claims someone as a waifu. Requires Discoins",
 			aliases: ["claim"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let args = suffix.split(" ");
@@ -150,14 +143,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"divorce": {
-			usage: "<reason>",
+			usage: "[reason]",
 			description: "Divorces a user",
 			aliases: ["divorce"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let info = await utils.waifu.get(msg.author.id);
 				if (!info.waifu) return msg.channel.send(`${msg.author.username}, you don't even have a waifu to divorce, silly`);
@@ -165,8 +154,10 @@ module.exports = function(passthrough) {
 				let face = faces.random();
 				await utils.waifu.unbind(msg.author.id);
 				msg.channel.send(`${msg.author.tag} has filed for a divorce from ${info.waifu.tag} with ${suffix ? `reason: ${suffix}` : "no reason specified"}`);
-				let memsettings = await utils.settings.get(utils.waifu.id);
-				let guildsettings;
+				let [memsettings, guildsettings] = await Promise.all([
+					utils.sql.get("SELECT * FROM SettingsSelf WHERE keyID =? AND setting =?", [info.waifu.id, "waifualert"]),
+					utils.sql.get("SELECT * FROM SettingsSelf WHERE keyID =? AND setting =?", [msg.guild.id, "waifualert"])
+				]);
 				if (msg.guild) memsettings = await utils.sql.get("SELECT * FROM SettingsGuild WHERE keyID =? AND setting =?", [msg.guild.id, "waifualert"]);
 				if (memsettings && memsettings.value == 0) return;
 				if (guildsettings && guildsettings.value == 0) {
@@ -177,14 +168,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"gift": {
-			usage: "<amount>",
+			usage: "<amount: Number|all>",
 			description: "Gifts an amount of Discoins towards your waifu's price",
 			aliases: ["gift"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let args = suffix.split(" ");
@@ -209,14 +196,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"waifuleaderboard": {
-			usage: "none",
+			usage: "[page]",
 			description: "Displays the leaderboard of the top waifus",
 			aliases: ["waifuleaderboard", "waifulb"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let amount = 10;
 				if (msg.channel.type != "dm") permissions = msg.channel.permissionsFor(client.user);
@@ -257,10 +240,6 @@ module.exports = function(passthrough) {
 			description: "Beans a user",
 			aliases: ["bean"],
 			category: "interaction",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type !== "text") return msg.channel.send("You can't bean someone in DMs, silly");
 				if (!suffix) return msg.channel.send(lang.input.invalid(msg, "user"));
@@ -339,6 +318,10 @@ module.exports = function(passthrough) {
 				description: source.description,
 				aliases: [source.name],
 				category: "interaction",
+				/**
+				 * @param {Discord.Message} msg
+				 * @param {String} suffix
+				 */
 				process: (msg, suffix) => doInteraction(msg, suffix, source)
 			}
 		}
@@ -362,15 +345,7 @@ module.exports = function(passthrough) {
 	/**
 	 * @param {Discord.Message} msg
 	 * @param {String} suffix
-	 * @param {Object} source
-	 * @param {String} source.name
-	 * @param {String} source.description
-	 * @param {String} source.verb
-	 * @param {String} source.shortcut
-	 * @param {Function} source.amanda
-	 * @param {String} [source.footer]
-	 * @param {Boolean} [source.traaOverride]
-	 * @param {Function} [source.url]
+	 * @param {{name: String, description: String, verb: String, shortcut: String, fetch?: () => Promise<String>, amanda: (name: String) => String, footer?: String, traaOverride?: Boolean, url?: () => String}} source
 	 */
 	async function doInteraction(msg, suffix, source) {
 		if (msg.channel.type == "dm") return msg.channel.send(`Why would you want to ${source.name} someone in DMs?`);

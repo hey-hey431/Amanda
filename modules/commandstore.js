@@ -1,6 +1,9 @@
 const Discord = require("discord.js");
 
-module.exports = class CommandStore extends Discord.Collection {
+/**
+ * @extends {Discord.Collection<String, {usage: String, description: String, aliases: Array<String>, category: String, process: (msg: Discord.Message, suffix?: String) => any}>}
+ */
+class CommandStore extends Discord.Collection {
 	constructor() {
 		super();
 		/**
@@ -8,6 +11,9 @@ module.exports = class CommandStore extends Discord.Collection {
 		 */
 		this.categories = new Map();
 	}
+	/**
+	 * @param {Object.<string, {usage: String, description: String, aliases: Array<String>, category: String, process: (msg: Discord.Message, suffix?: String) => any}>} properties
+	 */
 	assign(properties) {
 		Object.values(properties).forEach(i => {
 			if (this.get(i.aliases[0])) this.delete(i.aliases[0]);
@@ -20,3 +26,5 @@ module.exports = class CommandStore extends Discord.Collection {
 		});
 	}
 }
+
+module.exports = CommandStore;

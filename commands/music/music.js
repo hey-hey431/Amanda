@@ -50,7 +50,8 @@ module.exports = function(passthrough) {
 	 * @param {Song} song
 	 * @param {Discord.TextChannel} textChannel
 	 * @param {Discord.VoiceChannel} voiceChannel
-	 * @param {Boolean} insert
+	 * @param {Boolean} [insert]
+	 * @param {Discord.Message} [context]
 	 */
 	function handleSong(song, textChannel, voiceChannel, insert = undefined, context) {
 		let queue = queueManager.storage.get(textChannel.guild.id) || new queueFile.Queue(textChannel, voiceChannel);
@@ -60,104 +61,13 @@ module.exports = function(passthrough) {
 		}
 		return numberOfSongs
 	}
-	/**
-	 * @param {Discord.Message} msg
-	 * @param {Discord.VoiceChannel} voiceChannel
-	 * @param {Array<String>} videoIDs
-	 * @param {String} startString
-	 * @param {String} endString
-	 * @param {Boolean} shuffle
-	 * @returns {Promise}
-	 */
-	async function bulkPlaySongs(msg, voiceChannel, videoIDs, startString, endString, shuffle = false) {
-		const useBatchLimit = 50;
-		const batchSize = 30;
-
-		let oldVideoIDs = videoIDs;
-		let from = startString == "-" ? 1 : (parseInt(startString) || 1);
-		let to = endString == "-" ? videoIDs.length : (parseInt(endString) || from || videoIDs.length);
-		from = Math.max(from, 1);
-		to = Math.min(videoIDs.length, to);
-		if (startString) videoIDs = videoIDs.slice(from-1, to);
-		if (shuffle) {
-			videoIDs = videoIDs.shuffle();
-		}
-		if (!startString && !shuffle) videoIDs = videoIDs.slice(); // copy array to leave oldVideoIDs intact after making batches
-		if (!voiceChannel) voiceChannel = await detectVoiceChannel(msg, true);
-		if (!voiceChannel) return msg.channel.send(lang.voiceMustJoin(msg));
-
-		
-		let progress = 0;
-		let total = videoIDs.length;
-		let lastEdit = 0;
-		let editInProgress = false;
-		let progressMessage = await msg.channel.send(getProgressMessage());
-		let cancelled = false;
-		let loader = [msg.guild.id, () => {
-			cancelled = true;
-			progressMessage.edit(`Song loading cancelled. (${progress}/${total})`);
-			bulkLoaders.splice(bulkLoaders.indexOf(loader), 1)
-		}];
-		bulkLoaders.push(loader)
-		let batches = [];
-		if (total <= useBatchLimit) batches.push(videoIDs);
-		else while (videoIDs.length) batches.push(videoIDs.splice(0, batchSize));
-		function getProgressMessage(batchNumber, batchProgress, batchTotal) {
-			if (!batchNumber) return `Please wait, loading songs...\nUse \`&music stop\` to cancel.`;
-			else return `Please wait, loading songs (batch ${batchNumber}: ${batchProgress}/${batchTotal}, total: ${progress}/${total})\nUse \`&music stop\` to cancel.`;
-		}
-		let videos = [];
-		let batchNumber = 0;
-		(function nextBatch() {
-			let batch = batches.shift();
-			batchNumber++;
-			let batchProgress = 0;
-			let promise = Promise.all(batch.map(videoID => {
-				return ytdl.getInfo(videoID).then(info => {
-					if (cancelled) return;
-					if (progress >= 0) {
-						progress++;
-						batchProgress++;
-						if ((Date.now()-lastEdit > 2000 && !editInProgress) || progress == total) {
-							lastEdit = Date.now();
-							editInProgress = true;
-							progressMessage.edit(getProgressMessage(batchNumber, batchProgress, batch.length)).then(() => {
-								editInProgress = false;
-							});
-						}
-						return info;
-					}
-				}).catch(reason => Promise.reject({reason, id: videoID}))
-			}));
-			promise.catch(error => {
-				if (cancelled) return;
-				progress = -1;
-				common.manageYtdlGetInfoErrors(msg, error.reason, error.id, oldVideoIDs.indexOf(error.id)+1).then(() => {
-					msg.channel.send("At least one video in the playlist was not playable. Playlist loading has been cancelled.");
-				});
-			});
-			promise.then(batchVideos => {
-				if (cancelled) return;
-				videos.push(...batchVideos);
-				if (batches.length) nextBatch();
-				else {
-					bulkLoaders.splice(bulkLoaders.indexOf(loader), 1);
-					videos.forEach(video => {
-						let queue = queueManager.storage.get(msg.guild.id);
-						let song = new songTypes.YouTubeSong(video, !queue || queue.songs.length <= 1);
-						handleSong(song, msg.channel, voiceChannel);
-					});
-				}
-			});
-		})();
-	}
 
 	class VoiceStateCallback {
 		/**
 		 * @param {Discord.Snowflake} userID
 		 * @param {Discord.Guild} guild
 		 * @param {Number} timeoutMs
-		 * @param {Function} callback
+		 * @param {(voiceChannel: Discord.VoiceChannel) => void} callback
 		 * @constructor
 		 */
 		constructor(userID, guild, timeoutMs, callback) {
@@ -209,6 +119,7 @@ module.exports = function(passthrough) {
 	 * @param {Discord.Snowflake} userID
 	 * @param {Discord.Guild} guild
 	 * @param {Number} timeoutMs
+	 * @returns {Promise<Discord.VoiceChannel>}
 	 */
 	function getPromiseVoiceStateCallback(userID, guild, timeoutMs) {
 		return new Promise(resolve => {
@@ -305,7 +216,18 @@ module.exports = function(passthrough) {
 		["queue", {
 			queue: "required",
 			code: async (msg, args, {queue}) => {
-				queue.wrapper.getQueue(msg)
+				if (args[1] == "remove") {
+					let index = +args[2]
+					if (isNaN(index) || index != Math.floor(index) || index <= 1 || index > queue.songs.length) {
+						return msg.channel.send("Syntax: `&music queue remove <position>`, where position is the number of the item in the queue")
+					}
+					index--
+					let title = queue.songs[index].getTitle()
+					queue.removeSong(index)
+					msg.channel.send(lang.voiceQueueRemovedSong(title))
+				} else {
+					queue.wrapper.getQueue(msg)
+				}
 			}
 		}],
 		["skip", {
@@ -400,32 +322,44 @@ module.exports = function(passthrough) {
 
 	commands.assign({
 		"musictoken": {
-			usage: "none",
+			usage: "[new|delete]",
 			description: "Obtain a web dashboard login token",
-			aliases: ["token", "musictoken", "webtoken"],
+			aliases: ["token", "musictoken", "webtoken", "musictokens", "webtokens"],
 			category: "meta",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
-				if (!config.is_staging) {
-					return msg.channel.send(
-						"The music controls website is currently under construction.\n"
-						+"Feel free to join the support server to get an announcement as soon as it's available: https://discord.gg/zhthQjH\n"
-						+"Users who have donated and are in the support server have access to a beta version of the website. Once the website is complete, it will be available to everyone."
-					);
-				} else {
-					await utils.sql.all("DELETE FROM WebTokens WHERE userID = ?", msg.author.id);
+				if (suffix == "delete") {
+					await deleteAll()
+					msg.author.send("Deleted all your tokens. Use `&musictoken new` to generate a new one.")
+				} else if (suffix == "new") {
+					await deleteAll()
 					let hash = crypto.randomBytes(24).toString("base64").replace(/\W/g, "_")
 					await utils.sql.all("INSERT INTO WebTokens VALUES (?, ?, ?)", [msg.author.id, hash, 1]);
-					msg.author.send(
-						`Music login token created: \`${hash}\``
-						+`\nDo not share this token with anyone. If you accidentally share it, you can use this command again to generate a new one and disable the old ones.`
-						+`\nThis is a staging token, and it will only work on a staging version of the website.`
-						+`\n${config.website_protocol}://${config.website_domain}/dash`
-					).then(() => {
-						if (msg.channel.type == "text") msg.channel.send(`You've been DMed a token.`)
+					send(
+						`Your existing tokens were deleted, and a new one was created.`
+						+"\n`"+hash+"`"
+						+"\nDo not share this token with anyone. If you do accidentally share it, you can use `&musictoken delete` to delete it and keep you safe."
+						+`\nYou can now log in! ${config.website_protocol}://${config.website_domain}/dash`
+					)
+				} else {
+					let existing = await utils.sql.get("SELECT * FROM WebTokens WHERE userID = ?", msg.author.id)
+					if (existing) {
+						send(
+							"Here is the token you generated previously:"
+							+"\n`"+existing.token+"`"
+							+"\nYou can use `&musictoken delete` to delete it, and `&musictoken new` to regenerate it."
+						)
+					} else {
+						send("You do not currently have any tokens. Use `&musictoken new` to generate a new one.")
+					}
+				}
+				
+				function deleteAll() {
+					return utils.sql.all("DELETE FROM WebTokens WHERE userID = ?", msg.author.id);
+				}
+				
+				function send(text) {
+					msg.author.send(text).then(() => {
+						if (msg.channel.type == "text") msg.channel.send(`I sent you a DM.`)
 					}).catch(() => {
 						msg.channel.send(`Please allow me to send you DMs.`)
 					})
@@ -437,10 +371,6 @@ module.exports = function(passthrough) {
 			description: "Frisky radio",
 			aliases: ["frisky"],
 			category: "music",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				const voiceChannel = msg.member.voiceChannel;
@@ -471,10 +401,6 @@ module.exports = function(passthrough) {
 			description: "You're not supposed to see this",
 			aliases: ["music", "m"],
 			category: "music",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				// No DMs
 				if (msg.channel.type != "text") return msg.channel.send(lang.command.guildOnly(msg))

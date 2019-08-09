@@ -47,10 +47,15 @@ module.exports = (passthrough) => {
 				
 				if (session) {
 					let user = await client.fetchUser(session.userID)
-					let guilds = [...client.guilds.filter(g => g.members.has(session.userID)).values()]
+					let guilds = []
+					let npguilds = []
+					for (let guild of client.guilds.filter(g => g.members.has(session.userID)).values()) {
+						if (guild.queue || guild.members.get(session.userID).voiceChannel) npguilds.push(guild)
+						else guilds.push(guild)
+					}
 
 					let csrfToken = extra.generateCSRF()
-					let page = pugCache.get("commands/web/pug/selectserver.pug")({user, guilds, csrfToken})
+					let page = pugCache.get("commands/web/pug/selectserver.pug")({user, npguilds, guilds, csrfToken})
 					return {
 						statusCode: 200,
 						contentType: "text/html",
@@ -78,11 +83,6 @@ module.exports = (passthrough) => {
 					,assign: "row"
 					,expected: v => v !== undefined
 					,errorValue: [400, "Invalid token"]
-				})
-				.do({
-					code: (_) => !_.row.staging || config.is_staging
-					,expected: true
-					,errorValue: [400, "Cannot using staging tokens here"]
 				})
 				.go()
 				.then(state => {

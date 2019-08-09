@@ -20,7 +20,7 @@ module.exports = passthrough => {
 	if (!resultCache) {
 		var common = {
 			/**
-			 * @param {Discord.TextChannel} channel
+			 * @param {Discord.TextChannel|Discord.Message} channel
 			 * @param {Object} reason
 			 * @param {String} reason.message
 			 * @param {String} id
@@ -70,7 +70,11 @@ module.exports = passthrough => {
 				return output.join(":");
 			},
 			resolveInput: {
-				/** @returns {Array<String>|Array<Object>} */
+				/**
+				 * @param {String} input
+				 * @param {Discord.TextChannel} channel
+				 * @returns {Promise<Array<String>|Array<import("simple-youtube-api").Video>>}
+				 */
 				toID: async function(input, channel) {
 					input = input.replace(/(<|>)/g, "");
 					try {
@@ -139,7 +143,7 @@ module.exports = passthrough => {
 						}
 					} catch (e) {
 						// Not a URL. Might be an ID?
-						if (input.length == 11) return ytdl.getBasicInfo(input).then(info => [info.video_id]).catch(() => null)
+						if (input.length == 11) return ytdl.getBasicInfo(input).then(info => [info.player_response.videoDetails.videoId]).catch(() => null)
 						else return null
 					}
 				},
@@ -147,10 +151,16 @@ module.exports = passthrough => {
 				/**
 				 * Not interactive. Max 10 results.
 				 * @param {String} input
-				 * @returns {Array<Object>}
+				 * @returns {Promise<Array<{type: String, title: String, videoId: String, author: String, authorId: String, videoThumbnails: Array<{quality: String, url: String, width: Number, height: Number}>, description: String, descriptionHtml: String, viewCount: Number, published: Number, publishedText: String, lengthSeconds: Number, liveNow: Boolean, paid: Boolean, premium: Boolean}>>}
 				 */
 				toSearch: async function(input) {
-					let videos = await rp(`https://invidio.us/api/v1/search?order=relevance&q=${encodeURIComponent(input)}`, {json: true});
+					let videos;
+					try {
+						videos = await rp(`https://invidio.us/api/v1/search?order=relevance&q=${encodeURIComponent(input)}`, {json: true});
+					} catch (e) {
+						return [];
+					}
+					if (!videos.filter) return [];
 					videos = videos.filter(v => v.lengthSeconds > 0).slice(0, 10);
 					return videos;
 				},
@@ -158,15 +168,17 @@ module.exports = passthrough => {
 				/**
 				 * Interactive.
 				 * @param {String} input
-				 * @param {Discord.Channel} channel
-				 * @returns {(Array<String>|Null)} Returns an array of video IDs, or null
+				 * @param {Discord.TextChannel} channel
+				 * @param {String} authorID
+				 * @returns {Promise<Array<any>>} An array of video IDs, or null
 				 */
 				toIDWithSearch: async function(input, channel, authorID) {
 					let id = await common.resolveInput.toID(input, channel);
 					if (id) return [id, false];
 					channel.sendTyping()
 					let videos = await common.resolveInput.toSearch(input);
-					let videoResults = videos.map((video, index) => `${index+1}. **${Discord.escapeMarkdown(video.title)}** (${common.prettySeconds(video.lengthSeconds)})`);
+					if (videos.length < 1) return null;
+					let videoResults = videos.map((video, index) => `${index+1}. **${Discord.Util.escapeMarkdown(video.title)}** (${common.prettySeconds(video.lengthSeconds)})`);
 					return utils.makeSelection(channel, authorID, "Song selection", "Song selection cancelled", videoResults).then(index => {
 						return [[videos[index].videoId], true];
 					}).catch(() => {

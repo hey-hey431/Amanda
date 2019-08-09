@@ -4,6 +4,7 @@ require("../../types.js")
 const Discord = require("discord.js");
 const ytdl = require("ytdl-core");
 const rp = require("request-promise");
+const events = require("events")
 
 const voiceEmptyDuration = 20000;
 
@@ -58,10 +59,11 @@ module.exports = passthrough => {
 				this.skippable = false
 				this.auto = false
 				this.nowPlayingMsg = null
+				this.wrapper = new queueFile.QueueWrapper(this)
+				this.events = new events.EventEmitter()
+				this.voiceLeaveTimeout = new utils.BetterTimeout()
 				this.queueManager = queueManager
 				this.queueManager.addQueue(this)
-				this.wrapper = new queueFile.QueueWrapper(this)
-				this.voiceLeaveTimeout = new utils.BetterTimeout()
 				voiceChannel.join().then(async connection => {
 					this.connection = connection
 					if (!this.songs.length) await this.textChannel.send(
@@ -81,7 +83,8 @@ module.exports = passthrough => {
 			 * @returns {Discord.StreamDispatcher}
 			 */
 			get dispatcher() {
-				return this.connection.dispatcher || this._dispatcher;
+				if (this.connection && this.connection.dispatcher) return this.connection.dispatcher
+				else return this._dispatcher
 			}
 			/**
 			 * Destroy the current song,
@@ -101,6 +104,8 @@ module.exports = passthrough => {
 				if (this.voiceChannel) this.voiceChannel.leave();
 				if (this.nowPlayingMsg) this.nowPlayingMsg.clearReactions();
 				if (this.reactionMenu) this.reactionMenu.destroy(true);
+				this.events.emit("dissolve")
+				this.events.removeAllListeners()
 				this.destroy();
 			}
 			/**
@@ -116,15 +121,17 @@ module.exports = passthrough => {
 			addSong(song, insert) {
 				let position; // the actual position to insert into, `undefined` to push
 				if (insert == undefined) { // no insert? just push
-					position = undefined;
+					position = -1;
 				} else if (typeof(insert) == "number") { // number? insert into that point
 					position = insert;
 				} else if (typeof(insert) == "boolean") { // boolean?
 					if (insert) position = 1; // if insert is true, insert
-					else position = undefined; // otherwise, push
+					else position = -1; // otherwise, push
 				}
-				if (position == undefined) this.songs.push(song);
+				if (position == -1) this.songs.push(song);
 				else this.songs.splice(position, 0, song);
+				this.events.emit("queueAdd", song, position)
+				song.events.on("update", () => this.announceSongInfoUpdate(song))
 				if (this.songs.length == 1) {
 					if (this.connection) this.play();
 				} else if (this.songs.length == 2) {
@@ -133,6 +140,26 @@ module.exports = passthrough => {
 					song.clean()
 				}
 				return this.songs.length
+			}
+			/**
+			 * @param {Number} index
+			 * @returns {0|1|2}
+			 */
+			removeSong(index) {
+				if (index == 0) return 1
+				if (!this.songs[index]) return 1
+				let removed = this.songs.splice(index, 1)[0]
+				if (!removed) return 2
+				removed.destroy()
+				this.events.emit("queueRemove", index)
+				return 0
+			}
+			/**
+			 * @param {Song} song
+			 */
+			announceSongInfoUpdate(song) {
+				let index = this.songs.indexOf(song)
+				if (index != -1) this.events.emit("songUpdate", index)
 			}
 			/**
 			 * @param {Discord.GuildMember} oldMember
@@ -157,6 +184,7 @@ module.exports = passthrough => {
 						})
 					}
 				}
+				this.events.emit("membersChange")
 			}
 			getNPEmbed() {
 				let song = this.songs[0];
@@ -170,7 +198,7 @@ module.exports = passthrough => {
 			}
 			generateReactions() {
 				if (this.reactionMenu) this.reactionMenu.destroy(true);
-				if (this.nowPlayingMsg) this.reactionMenu = this.nowPlayingMsg.reactionMenu([
+				if (this.nowPlayingMsg) this.reactionMenu = new utils.ReactionMenu(this.nowPlayingMsg, [
 					{ emoji: "⏯", remove: "user", actionType: "js", actionData: (msg, emoji, user) => {
 						if (!this.voiceChannel.members.has(user.id)) return;
 						this.wrapper.togglePlaying("reaction")
@@ -200,6 +228,7 @@ module.exports = passthrough => {
 			/**
 			 * Update the existing now playing message once.
 			 * Do not call this before the first Queue.play(), because the now playing message might not exist then.
+			 * @returns {Promise<Error|Discord.RichEmbed|String>}
 			 */
 			updateNowPlaying() {
 				if (!this.nowPlayingMsg) throw new Error("I TOLD YOU SO!!!")
@@ -229,9 +258,6 @@ module.exports = passthrough => {
 				clearTimeout(this.npUpdateTimeout)
 				clearInterval(this.npUpdateInterval)
 			}
-			/**
-			 * @returns {Promise<void>} void
-			 */
 			async play() {
 				// Set up song
 				let song = this.songs[0]
@@ -246,25 +272,29 @@ module.exports = passthrough => {
 					return this.playNext()
 				}
 				stream.on("error", async err => {
-					this.textChannel.send("Failed to stream that file. This is a bug. Please tell us about it. https://discord.gg/zhthQjH")
-					console.error(err)
+					if (err && typeof(err.message) == "string" && err.message.startsWith("No formats found")) {
+						this.textChannel.send(`That video doesn't have playable sound. It will be skipped. (id: ${song.getUserFacingID()})`)
+					} else {
+						console.error("Posting a support server link :<")
+						console.error(err)
+						this.textChannel.send("Failed to stream that file. This is a bug. We're aware of the cause, and we're working on it.\nIf you try the same thing again, it will probably work.")
+					}
 					stream.removeAllListeners("data")
 					return this.playNext()
 				});
 				// Make a dispatcher
-				/**
-				 * @type {Discord.StreamDispatcher}
-				 */
 				stream.once("data", () => {
-					const dispatcher = this.connection[song.connectionPlayFunction](stream)
+					/** @type {Discord.StreamDispatcher} */
+					const dispatcher = this.connection[song.connectionPlayFunction](stream, {bitrate: "auto"})
 					this._dispatcher = dispatcher
 					dispatcher.once("start", async () => {
 						// Set up the internal state
-						dispatcher.setBitrate("auto")
 						queueManager.songsPlayed++
 						this.skippable = true
 						this.playing = true
 						this.startNowPlayingUpdates()
+						// Emit for dash
+						this.events.emit("timeUpdate")
 						// Listen for errors
 						dispatcher.on("error", handleDispatcherError)
 						// Wait for the end
@@ -279,6 +309,8 @@ module.exports = passthrough => {
 							dispatcher.removeListener("error", handleDispatcherError)
 							// Reset the pausedTime
 							dispatcher.player.streamingData.pausedTime = 0
+							// Emit for dash
+							this.events.emit("next")
 							// Play the next song, or quit (auto is handled in here)
 							this.playNext()
 						})
@@ -292,10 +324,11 @@ module.exports = passthrough => {
 				} else if (!this.auto) {
 					this.dissolve()
 				} else {
-					justPlayed.getSuggested().then(song => {
+					justPlayed.getSuggested(this.playedSongs).then(song => {
 						if (song) {
 							let isQueueStillEmpty = !this.songs[0]
 							this.songs.push(song)
+							this.events.emit("queueAdd", song, -1)
 							if (isQueueStillEmpty) this.play()
 						} else {
 							this.dissolve()
@@ -318,6 +351,7 @@ module.exports = passthrough => {
 					this.connection.dispatcher.pause()
 					this.stopNowPlayingUpdates()
 					this.updateNowPlaying()
+					this.events.emit("timeUpdate")
 					return 0
 				} else {
 					return -1
@@ -333,6 +367,7 @@ module.exports = passthrough => {
 					this.playing = true
 					this.connection.dispatcher.resume()
 					this.startNowPlayingUpdates()
+					this.events.emit("timeUpdate")
 					return 0
 				} else {
 					return -1
@@ -358,6 +393,10 @@ module.exports = passthrough => {
 				this.dissolve()
 				return 0
 			}
+			toggleAuto() {
+				this.auto = !this.auto
+				this.events.emit("attributes")
+			}
 		}
 
 		class QueueWrapper {
@@ -374,7 +413,9 @@ module.exports = passthrough => {
 				}
 				this.queue.textChannel.send(utils.contentify(this.queue.textChannel, info))
 			}
-
+			/**
+			 * @param {Discord.Message|String} [context]
+			 */
 			pause(context) {
 				let result = this.queue.pause()
 				if (context instanceof Discord.Message || context === "reaction") {
@@ -388,7 +429,9 @@ module.exports = passthrough => {
 					}
 				}
 			}
-
+			/**
+			 * @param {Discord.Message|String} [context]
+			 */
 			resume(context) {
 				let result = this.queue.resume()
 				if (context instanceof Discord.Message || context === "reaction") {
@@ -400,7 +443,9 @@ module.exports = passthrough => {
 					}
 				}
 			}
-
+			/**
+			 * @param {Discord.Message|String} [context]
+			 */
 			skip(context) {
 				let result = this.queue.skip()
 				if (context instanceof Discord.Message || context === "reaction") {
@@ -412,7 +457,9 @@ module.exports = passthrough => {
 					}
 				}
 			}
-
+			/**
+			 * @param {Discord.Message|String} [context]
+			 */
 			stop(context) {
 				let result = this.queue.stop()
 				if (context instanceof Discord.Message || context === "reaction") {
@@ -422,20 +469,26 @@ module.exports = passthrough => {
 					}
 				}
 			}
-
+			/**
+			 * @param {Discord.Message} [context]
+			 */
 			toggleAuto(context) {
-				this.queue.auto = !this.queue.auto
+				this.queue.toggleAuto()
 				if (context instanceof Discord.Message) {
 					let mode = this.queue.auto ? "on" : "off"
 					context.channel.send(`Auto mode is now turned ${mode}.`)
 				}
 			}
-
+			/**
+			 * @param {Discord.Message|String} [context]
+			 */
 			togglePlaying(context) {
 				if (this.queue.playing) return this.pause(context)
 				else return this.resume(context)
 			}
-
+			/**
+			 * @param {Discord.Message} context
+			 */
 			getQueue(context) {
 				if (context instanceof Discord.Message) {
 					let rows = this.queue.songs.map((song, index) => `${index+1}. `+song.getQueueLine())
@@ -446,6 +499,37 @@ module.exports = passthrough => {
 					.setDescription(body)
 					.setColor("36393E")
 					return context.channel.send(utils.contentify(context.channel, embed));
+				}
+			}
+
+			getMembers() {
+				return this.queue.voiceChannel.members.map(m => ({
+					id: m.id,
+					name: m.displayName,
+					/** @type {String} */
+					avatar: m.user.sizedAvatarURL(64),
+					isAmanda: m.id == client.user.id
+				}))
+			}
+
+			getAttributes() {
+				return {
+					/** @type {Boolean} */
+					auto: this.queue.auto
+				}
+			}
+
+			getState() {
+				return {
+					playing: this.queue.playing,
+					time: this.queue.dispatcher ? this.queue.dispatcher.time : 0,
+					songs: this.queue.songs.map(s => s.webInfo()),
+					members: this.getMembers(),
+					voiceChannel: {
+						id: this.queue.voiceChannel.id,
+						name: this.queue.voiceChannel.name
+					},
+					attributes: this.getAttributes()
 				}
 			}
 		}

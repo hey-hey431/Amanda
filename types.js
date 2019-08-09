@@ -1,27 +1,35 @@
 /**
  * @typedef {Object} PassthroughType
- * @property {Object} config
- * @property {String} config.bot_token
- * @property {String} config.fake_token
- * @property {String} config.mysql_password
- * @property {String} config.yt_api_key
- * @property {String} config.chewey_api_key
- * @property {String} config.website_protocol
- * @property {String} config.website_domain
- * @property {Boolean} config.is_staging
+ * @property {{bot_token: String, fake_token: String, mysql_password: String, yt_api_key: String, chewey_api_key: String, website_protocol: String, website_domain: String, is_staging: Boolean}} config
  * @property {import("discord.js").Client} client
- * @property {import("./commandstore")} commands
+ * @property {import("./modules/commandstore")} commands
  * @property {import("mysql2/promise").PromisePool} db
- * @property {import("./hotreload")} reloader
+ * @property {import("./modules/hotreload")} reloader
  * @property {import("events").EventEmitter} reloadEvent
- * @property {Object.<string, {message: import("discord.js").Message, actions: Array<{emoji: String, allowedUsers?: Array<String>, deniedUsers?: Array<String>, ignore?: String, remove?: String, actionType?: String, actionData?: Function}>, promise: Promise<void>}>} reactionMenus
- * @property {Object} queueManager
- * @property {import("discord.js").Collection<import("discord.js").Snowflake, any>} queueManager.storage <guildID, queue>
- * @property {Number} queueManager.songsPlayed
- * @property {Function} queueManager.addQueue
- * @property {Object} gameManager
- * @property {import("discord.js").Collection<import("discord.js").Snowflake, any>} gameManager.storage
- * @property {Number} gameManager.gamesPlayed
- * @property {Function} gameManager.addGame
+ * @property {Object.<string, ReactionMenu>} reactionMenus
+ * @property {{storage: import("discord.js").Collection<import("discord.js").Snowflake, import("./modules/compiledtypings/queue.js")>, songsPlayed: Number, events: import("events").EventEmitter, addQueue: (queue: import("./modules/compiledtypings/queue.js")) => void}} queueManager
+ * @property {{storage: import("discord.js").Collection<import("discord.js").Snowflake, import("./modules/compiledtypings/game.js")>, gamesPlayed: Number, addGame: (game: import("./modules/compiledtypings/game.js")) => void}} gameManager
  * @property {import("simple-youtube-api")} youtube
+ * @property {import("ws").Server} wss
+ */
+
+/**
+ * @typedef {Object} ReactionMenu
+ * @property {import("discord.js").Message} message
+ * @property {Array<ReactionMenuAction>} actions
+ * @property {Promise<void>} promise
+ * @property {() => Promise<void>} react
+ * @property {(remove: Boolean) => void} destroy
+ */
+
+/**
+ * @typedef {Object} ReactionMenuAction
+ * @property {import("discord.js").Emoji|import("discord.js").ReactionEmoji|String} emoji
+ * @property {import("discord.js").MessageReaction} [messageReaction]
+ * @property {Array<String>} [allowedUsers]
+ * @property {Array<String>} [deniedUsers]
+ * @property {"that"|"thatTotal"|"all"|"total"|"none"|String} [ignore]
+ * @property {"user"|"bot"|"all"|"message"|String} [remove]
+ * @property {"reply"|"edit"|"js"|"none"|String} [actionType]
+ * @property {(msg: import("discord.js").Message, emoji: import("discord.js").Emoji | import("discord.js").ReactionEmoji, user: import("discord.js").User, messageReaction: import("discord.js").MessageReaction, reactionMenus: Object.<string, ReactionMenu>) => any|any} [actionData]
  */

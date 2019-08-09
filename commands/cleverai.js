@@ -1,3 +1,4 @@
+// @ts-ignore
 require("../types.js");
 
 const responses = {
@@ -128,10 +129,6 @@ module.exports = function(passthrough) {
 				"Only if you are the chosen one will the void stare back.",
 			aliases: ["cleverai"],
 			category: "games",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function (msg, suffix) {
 				suffix = suffix.toLowerCase();
 

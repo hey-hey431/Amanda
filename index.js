@@ -1,12 +1,17 @@
 const Discord = require("discord.js");
 const mysql = require("mysql2/promise");
-const hotreload = require("./hotreload.js");
-const commandstore = require("./commandstore.js");
+const hotreload = require("./modules/hotreload.js");
+const commandstore = require("./modules/commandstore.js");
+const managers = require("./modules/managers.js");
 const YouTube = require("simple-youtube-api");
 
+// @ts-ignore
 const config = require("./config.json");
-const client = new Discord.Client({disableEveryone: true});
+const client = new Discord.Client({disableEveryone: true, disabledEvents: ["TYPING_START"]});
 const youtube = new YouTube(config.yt_api_key);
+
+// @ts-ignore
+require("./types.js");
 
 let db = mysql.createPool({
 	host: config.mysql_domain,
@@ -17,22 +22,8 @@ let db = mysql.createPool({
 });
 
 let commands = new commandstore();
+/** @type {Object.<string, ReactionMenu>} */
 let reactionMenus = {};
-
-let queueManager = {
-	storage: new Discord.Collection(),
-	songsPlayed: 0,
-	addQueue(queue) {
-		this.storage.set(queue.id, queue);
-	}
-};
-let gameManager = {
-	storage: new Discord.Collection(),
-	gamesPlayed: 0,
-	addGame: function(game) {
-		this.storage.set(game.id, game);
-	}
-};
 
 (async () => {
 	await Promise.all([
@@ -41,7 +32,7 @@ let gameManager = {
 	]);
 
 	let reloader = new hotreload();
-	let passthrough = {config, client, commands, db, reloader, reloadEvent: reloader.reloadEvent, reactionMenus, queueManager, gameManager, youtube};
+	let passthrough = {config, client, commands, db, reloader, reloadEvent: reloader.reloadEvent, reactionMenus, queueManager: managers.queueManager, gameManager: managers.gameManager, youtube, wss: undefined};
 	reloader.setPassthrough(passthrough);
 	reloader.setupWatch([
 		"./modules/utilities.js",
@@ -50,7 +41,7 @@ let gameManager = {
 		"./commands/music/songtypes.js",
 		"./commands/music/queue.js",
 		"./commands/music/playlistcommand.js"
-	])
+	]);
 	reloader.watchAndLoad([
 		"./modules/prototypes.js",
 		"./modules/events.js",
@@ -66,7 +57,10 @@ let gameManager = {
 		"./commands/music/music.js",
 		"./commands/traa.js",
 		"./commands/web/server.js"
-	])
+	]);
+	
+	// no reloading for statuses. statuses will be periodically fetched from mysql.
+	require("./modules/status.js")(passthrough)
 
 	client.login(config.bot_token);
 

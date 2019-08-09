@@ -1,6 +1,7 @@
 const Jimp = require("jimp");
 const Discord = require("discord.js");
 
+// @ts-ignore
 require("../types.js");
 
 const dailyCooldownHours = 20;
@@ -34,17 +35,14 @@ module.exports = function(passthrough) {
 
 	commands.assign({
 		"slot": {
-			usage: "<amount>",
+			usage: "[amount: Number|all]",
 			description: "Runs a random slot machine for a chance at Discoins",
 			aliases: ["slot", "slots"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
-				let permissions = msg.channel.permissionsFor(client.user);
+				let permissions;
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (!permissions.has("ATTACH_FILES")) return msg.channel.send(lang.permissionDeniedGeneric("attach files"));
 				msg.channel.sendTyping();
 				let args = suffix.split(" ");
@@ -127,27 +125,20 @@ module.exports = function(passthrough) {
 			}
 		},
 		"flip": {
-			usage: "none",
+			usage: "None",
 			description: "Flips a coin",
 			aliases: ["flip"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: function(msg) {
 				let flip = ['heads <:coinH:402219464348925954>', 'tails <:coinT:402219471693021196>'].random();
 				return msg.channel.send(`You flipped ${flip}`);
 			}
 		},
 		"betflip": {
-			usage: "<amount> <side (h or t)>",
+			usage: "<amount: Number|all> [h|t]",
 			description: "Place a bet on a random flip for a chance of Discoins",
 			aliases: ["betflip", "bf"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let args = suffix.split(" ");
@@ -205,14 +196,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"coins": {
-			usage: "<user>",
+			usage: "[user]",
 			description: "Returns the amount of Discoins you or another user has",
 			aliases: ["coins", "$"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let member = await msg.guild.findMember(msg, suffix, true);
@@ -226,13 +213,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"daily": {
-			usage: "none",
+			usage: "None",
 			description: "A daily command that gives a random amount of Discoins",
 			aliases: ["daily"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 */
 			process: async function(msg) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let [row, donor] = await Promise.all([
@@ -256,19 +240,15 @@ module.exports = function(passthrough) {
 			}
 		},
 		"leaderboard": {
-			usage: "none",
+			usage: "[page]",
 			description: "Gets the leaderboard for people with the most coins",
 			aliases: ["leaderboard", "lb"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let pagesize = 10;
 				let pagenum = 1;
 				if (suffix) {
-					let inputnum = parseInt(suffix);
+					let inputnum = Number(suffix);
 					inputnum = Math.min(Math.max(inputnum, 1), 50);
 					if (!isNaN(inputnum)) pagenum = inputnum;
 				}
@@ -289,14 +269,10 @@ module.exports = function(passthrough) {
 			}
 		},
 		"give": {
-			usage: "<amount> <user>",
+			usage: "<amount: Number|all> <user>",
 			description: "Gives discoins to a user from your account",
 			aliases: ["give"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
 				let args = suffix.split(" ");
@@ -329,24 +305,21 @@ module.exports = function(passthrough) {
 				msg.channel.send(utils.contentify(msg.channel, embed));
 				if (memsettings && memsettings.value == 0) return;
 				if (guildsettings && guildsettings.value == 0) {
-					if (memsettings && memsettings.value == 1) return member.send(`${String(msg.author)} has given you ${gift} ${lang.emoji.discoin}`).catch(() => msg.channel.send(lang.permissionOtherDMBlocked(msg)));
+					if (memsettings && memsettings.value == 1) return member.send(`${String(msg.author)} has given you ${gift} ${lang.emoji.discoin}`).catch(() => msg.channel.send(lang.permissionOtherDMBlocked()));
 					else return;
 				}
-				return member.send(`${String(msg.author)} has given you ${gift} ${lang.emoji.discoin}`).catch(() => msg.channel.send(lang.permissionOtherDMBlocked(msg)));
+				return member.send(`${String(msg.author)} has given you ${gift} ${lang.emoji.discoin}`).catch(() => msg.channel.send(lang.permissionOtherDMBlocked()));
 			}
 		},
 		"wheel": {
-			usage: "amount",
+			usage: "[amount: Number|all]",
 			description: "A Wheel of Fortune for a chance at making more Discoins",
 			aliases: ["wheel", "wof"],
 			category: "gambling",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			async process(msg, suffix) {
 				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
-				let permissions = msg.channel.permissionsFor(client.user);
+				let permissions;
+				if (msg.channel instanceof Discord.TextChannel) permissions = msg.channel.permissionsFor(client.user);
 				if (!permissions.has("ATTACH_FILES")) return msg.channel.send(lang.permissionDeniedGeneric("attach files"));
 				msg.channel.sendTyping();
 				let [money, canv, triangle] = await Promise.all([
@@ -389,7 +362,7 @@ module.exports = function(passthrough) {
 				canvas.composite(arrow, x, y, Jimp.BLEND_MULTIPLY);
 
 				let buffer = await canvas.getBufferAsync(Jimp.MIME_PNG);
-				image = new Discord.Attachment(buffer, "wheel.png");
+				let image = new Discord.Attachment(buffer, "wheel.png");
 				await utils.coinsManager.award(msg.author.id, Math.round((amount * Number(choice)) - amount));
 				return msg.channel.send(`${msg.author.tag} bet ${amount} discoins and got ${Math.round(amount * Number(choice))} back ${lang.emoji.discoin}`, {files: [image]});
 			}

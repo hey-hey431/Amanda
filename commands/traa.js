@@ -1,6 +1,7 @@
 const Discord = require("discord.js");
 const path = require("path");
 
+// @ts-ignore
 require("../types.js");
 
 const bots = [
@@ -71,10 +72,6 @@ module.exports = function(passthrough) {
 			description: "Store a GIF in the database",
 			aliases: ["storegif"],
 			category: "admin",
-			/**
-			 * @param {Discord.Message} msg
-			 * @param {String} suffix
-			 */
 			process: async function(msg, suffix) {
 				let allowed = await utils.hasPermission(msg.author, "eval");
 				if (!allowed) return msg.channel.send("not you");
@@ -91,7 +88,7 @@ module.exports = function(passthrough) {
 				new Promise(async resolve => {
 					if (existing.length) {
 						let dmsg = await msg.channel.send("That GIF already exists with "+existing.sort((a, b) => (a - b)).map(e => "`"+e.gender+"`").join(", ")+".");
-						let menu = dmsg.reactionMenu([{emoji: "🗑", ignore: "total", allowedUsers: [msg.author.id], actionType: "js", actionData: async () => {
+						let menu = new utils.ReactionMenu(dmsg, [{emoji: "🗑", ignore: "total", allowedUsers: [msg.author.id], actionType: "js", actionData: async () => {
 							await utils.sql.all("DELETE FROM GenderGifsV2 WHERE gifid = ?", existing[0].gifid);
 							await msg.channel.send("Deleted. Replacing...");
 							resolve();

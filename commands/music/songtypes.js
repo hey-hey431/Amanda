@@ -4,11 +4,16 @@ const ytdl = require("ytdl-core");
 const net = require("net");
 const tls = require("tls")
 const rp = require("request-promise");
-const request = require("request");
-const Stream = require("stream");
 const mm = require("music-metadata")
-const https = require("https")
+const events = require("events")
+const stream = require("stream")
 
+// @ts-ignore
+require("../../types.js");
+
+/**
+ * @param {PassthroughType} passthrough
+ */
 module.exports = passthrough => {
 	let {reloader} = passthrough
 
@@ -18,13 +23,32 @@ module.exports = passthrough => {
 	let common = require("./common.js")(passthrough)
 	reloader.useSync("./commands/music/common.js", common)
 
-	class YouTubeSong {
+	class WebSong {
+		constructor() {
+			this.events = new events.EventEmitter()
+		}
 		/**
-		 * @param {ytdl.videoInfo} info
-		 * @param {Boolean} cache
+		 * @returns {{title: String, length: Number, thumbnail: String}}
+		 */
+		webInfo() {
+			return {
+				title: this.getTitle(),
+				length: this.getLength(),
+				thumbnail: this.getThumbnail()
+			}
+		}
+	}
+
+	class YouTubeSong extends WebSong {
+		/**
+		 * @param {String} id
+		 * @param {ytdl.videoInfo} [info]
+		 * @param {Boolean} [cache]
+		 * @param {{title: String, length_seconds: Number}} [basic]
 		 * @constructor
 		 */
 		constructor(id, info, cache, basic) {
+			super()
 			this.id = id
 			this.connectionPlayFunction = "playOpusStream"
 			this.canBePaused = true
@@ -48,6 +72,13 @@ module.exports = passthrough => {
 					}
 					this._getInfo(cache)
 				}
+			}
+		}
+		getThumbnail() {
+			return {
+				src: `https://i.ytimg.com/vi/${this.id}/mqdefault.jpg`,
+				width: 320,
+				height: 180
 			}
 		}
 		_deleteCache() {
@@ -77,6 +108,9 @@ module.exports = passthrough => {
 				}
 			})
 		}
+		/**
+		 * @returns {Promise<Array<ytdl.relatedVideo>>}
+		 */
 		async _getRelated() {
 			let info = await this._getInfo(true)
 			return info.related_videos.filter(v => v.title && v.length_seconds > 0).map(v => {
@@ -87,8 +121,12 @@ module.exports = passthrough => {
 		getRelated() {
 			return this._getRelated()
 		}
-		getSuggested() {
-			return this._getRelated().then(videos => videos[0] ? new YouTubeSong(videos[0].id, undefined, true, videos[0]) : null)
+		getSuggested(playedSongs) {
+			return this._getRelated().then(videos => {
+				let filtered = videos.filter(v => !playedSongs.has("youtube_"+v.id))
+				if (filtered[0]) return new YouTubeSong(filtered[0].id, undefined, true, filtered[0])
+				else return null
+			})
 		}
 		showRelated() {
 			return this._getRelated().then(videos => {
@@ -111,7 +149,8 @@ module.exports = passthrough => {
 		/**
 		 * Returns null if failed. Examine this.error.
 		 * @param {Boolean} cache Whether to cache the results if they are fetched
-		 * @param {Boolean} force Whether to try to get from the existing cache first
+		 * @param {Boolean} [force=undefined] Whether to try to get from the existing cache first
+		 * @returns {Promise<ytdl.videoInfo>}
 		 */
 		_getInfo(cache, force = undefined) {
 			if (this.info || force) return Promise.resolve(this.info)
@@ -120,34 +159,41 @@ module.exports = passthrough => {
 				return this.info = ytdl.getInfo(this.id).then(info => {
 					this.basic.title = info.title
 					this.basic.length_seconds = +info.length_seconds
+					this.events.emit("update")
 					if (cache) this.info = info
 					return info
 				}).catch(error => {
 					this.error = error
 					this.basic.title = "Deleted video"
 					this.basic.length_seconds = 0
+					this.events.emit("update")
 					return null
 				})
 			}
 		}
 		/**
-		 * @returns {Promise<Array<any>>}
+		 * @returns {Promise<Array<ytdl.relatedVideo>>}
 		 */
 		async _related() {
-			await this.getInfo(true);
-			return this.info.related_videos.filter(v => v.title && +v.length_seconds > 0).slice(0, 10);
+			await this._getInfo(true)
+			return this.info.related_videos.filter(v => v.title && +v.length_seconds > 0).slice(0, 10)
 		}
+		/**
+		 * @param {Number} time
+		 * @param {Boolean} paused
+		 */
 		getProgress(time, paused) {
-			let max = this.basic.length_seconds;
+			let max = this.basic.length_seconds
 			let rightTime = common.prettySeconds(max)
-			let current = Math.round(time/1000);
-			if (current > max) current = max;
+			let current = Math.round(time/1000)
+			if (current > max) current = max
 			let leftTime = common.prettySeconds(current)
 			let bar = utils.progressBar(35, current, max, paused ? " [PAUSED] " : "")
-			return `\`[ ${leftTime} ${bar} ${rightTime} ]\``;
+			return `\`[ ${leftTime} ${bar} ${rightTime} ]\``
 		}
 		destroy() {
 			this._deleteCache()
+			this.events.removeAllListeners()
 		}
 		prepare() {
 			this._getInfo(true)
@@ -184,11 +230,12 @@ module.exports = passthrough => {
 		}
 	}
 
-	class FriskySong {
+	class FriskySong extends WebSong {
 		/**
 		 * @param {String} station Lowercase station from frisky, deep, chill
 		 */
 		constructor(station) {
+			super()
 			if (!["frisky", "deep", "chill"].includes(station)) {
 				throw new Error(`FriskySong station was ${this.station}, expected one of frisky, deep, chill`)
 			}
@@ -202,6 +249,7 @@ module.exports = passthrough => {
 			this.host = parts[0]
 			this.path = parts[1]
 			this.queue = null
+			/** @type {FriskyNowPlayingItem} */
 			this.info = null
 			this.actuallyStreaming = false
 			this.filledBarOffset = 0
@@ -210,11 +258,18 @@ module.exports = passthrough => {
 			this.canBePaused = false
 			this.title = "Frisky Radio"
 		}
+		getThumbnail() {
+			return {
+				src: "http://media.friskyradio.com.s3.amazonaws.com/logos_press/1352476361-FRISKY_mark_preview.png",
+				width: 568,
+				height: 290
+			}
+		}
 		getUniqueID() {
 			return "frisky_"+this.station
 		}
 		getUserFacingID() {
-			return this.getStationTitle
+			return this._getStationTitle()
 		}
 		getError() {
 			return null
@@ -231,6 +286,9 @@ module.exports = passthrough => {
 		}
 		clean() {
 		}
+		/**
+		 * @return {Promise<net.Socket>}
+		 */
 		async getStream() {
 			let socket = new net.Socket()
 			return Promise.all([
@@ -289,11 +347,16 @@ module.exports = passthrough => {
 			if (info && info.episode) title += " ⧸ "+info.episode.show_title+" ⧸ "+info.episode.artist_title
 			this.title = title
 		}
+		/**
+		 * @param {Boolean} [refresh]
+		 * @returns {Promise<FriskyNowPlayingItem>}
+		 */
 		async _getInfo(refresh) {
 			if (!refresh && this.info) return this.info
 			return this.info = rp("https://www.friskyradio.com/api/v2/nowPlaying", {json: true}).then(data => {
 				let item = data.data.items.find(i => i.station == this.station)
 				this.info = item
+				this.events.emit("update")
 				return this.info
 			}).catch(console.error)
 		}
@@ -454,7 +517,7 @@ module.exports = passthrough => {
 	// Verify that songs have the right methods
 	;[YouTubeSong, FriskySong, PastFriskySong].forEach(song => {
 		[
-			"getUniqueID", "getUserFacingID", "getError", "getTitle", "getProgress", "getQueueLine", "getLength",
+			"getUniqueID", "getUserFacingID", "getError", "getTitle", "getProgress", "getQueueLine", "getLength", "getThumbnail",
 			"getStream", "getDetails", "destroy", "getProgress", "prepare", "clean", "getRelated", "getSuggested", "showRelated"
 		].forEach(key => {
 			if (!song.prototype[key]) throw new Error(`Song type ${song.name} does not have the required method ${key}`)
@@ -463,3 +526,103 @@ module.exports = passthrough => {
 
 	return {YouTubeSong, FriskySong, PastFriskySong, makeYTSFromRow}
 }
+
+/**
+ * @typedef {Object} FriskyNowPlayingItem
+ * @property {String} station
+ * @property {{currentlisteners: Number, peaklisteners: Number, maxlisteners: Number, uniquelisteners: Number, averagetime: Number, servergenre: String, serverurl: String, servertitle: String, songtitle: String, nexttitle: String, streamhits: Number, streamstatus: Number, backupstatus: Number, streamsource: String, streampath: String, streamuptime: Number, bitrate: Number, content: String, version: String}} server
+ * @property {String} title
+ * @property {FriskyEpisode} episode
+ * @property {FriskyShow} show
+ */
+
+/**
+ * @typedef {Object} FriskyEpisode
+ * @property {Number} id
+ * @property {String} title
+ * @property {String} url
+ * @property {String} full_url
+ * @property {Number} artist_id
+ * @property {Array<String>} genre
+ * @property {Array<String>} track_list
+ * @property {{url: String, mime: String, filename: String, filesize: Number, s3_filename: String}} mix_url
+ * @property {{url: String, mime: String, filename: String, filesize: Number, s3_filename: String}} mix_url_64k
+ * @property {Number} show_id
+ * @property {String} included_as
+ * @property {String} allow_playing
+ * @property {Number} reach
+ * @property {String} artist_title
+ * @property {String} [artist_url]
+ * @property {String} [artist_home_city]
+ * @property {String} [artist_residency]
+ * @property {String} artist_genre
+ * @property {String} artist_biography
+ * @property {FriskyThumb} artist_photo
+ * @property {String} [artist_facebook_url]
+ * @property {String} [artist_myspace_url]
+ * @property {String} [artist_twitter_url]
+ * @property {String} [artist_website_url]
+ * @property {String} [artist_musical_influences]
+ * @property {String} [artist_favorite_venues]
+ * @property {String} [artist_status]
+ * @property {String} show_title
+ * @property {String} show_url
+ * @property {String} show_summary
+ * @property {Array<String>} show_genre
+ * @property {Number} show_artist_id
+ * @property {FriskyThumb} show_image
+ * @property {FriskyThumb} show_thumbnail
+ * @property {FriskyThumb} show_album_art
+ * @property {String} show_type
+ * @property {String} show_status
+ * @property {Number} occurrence_id
+ * @property {String} occurrence_title
+ * @property {String} occurrence_url
+ * @property {String} occurrence_summary
+ * @property {String} occurrence_genre
+ * @property {Number} occurrence_artist_id
+ * @property {FriskyThumb} occurrence_image
+ * @property {FriskyThumb} occurrence_thumbnail
+ * @property {FriskyThumb} occurrence_album_art
+ * @property {String} occurrence_status
+ * @property {String} occurrence_location
+ * @property {String} occurrence_type
+ * @property {String} show_location
+ * @property {String} show_channel_title
+ */
+
+/**
+ * @typedef {Object} FriskyShow
+ * @property {Number} id
+ * @property {String} title
+ * @property {String} url
+ * @property {String} summary
+ * @property {Array<String>} genre
+ * @property {Number} artist_id
+ * @property {FriskyThumb} image
+ * @property {FriskyThumb} thumbnail
+ * @property {FriskyThumb} album_art
+ * @property {String} type
+ * @property {String} status
+ * @property {String} channel_title
+ * @property {Date} modification_time
+ * @property {String} location
+ * @property {Date} next_episode
+ */
+
+/**
+ * @typedef {Object} FriskyThumb
+ * @property {String} url
+ * @property {String} mime
+ * @property {String} filename
+ * @property {Number} filesize
+ * @property {String} thumb_url
+ * @property {String} custom_url
+ * @property {Number} image_width
+ * @property {String} s3_filename
+ * @property {Number} thumb_width
+ * @property {Number} image_height
+ * @property {String} s3_thumbname
+ * @property {Number} thumb_height
+ * @property {Number} thumb_filesize
+ */
