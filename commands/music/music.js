@@ -215,7 +215,23 @@ module.exports = function(passthrough) {
 		}],
 		["queue", {
 			queue: "required",
-			code: async (msg, args, {queue}) => {
+			voiceChannel: "provide",
+			code: async (msg, args, {queue, voiceChannel}) => {
+				if (
+					(args[1] == "remove" && (args[2] == "all" || args[2] == "every"))
+					|| (args[1] == "clear")
+				) {
+					if (voiceChannel) {
+						let numberToClear = queue.songs.length-1
+						if (numberToClear == 0) return msg.channel.send("The queue is already empty.")
+						for (let i = 0; i < numberToClear; i++) {
+							queue.removeSong(1)
+						}
+						return msg.channel.send(`Cleared the queue, removing ${numberToClear} song${numberToClear == 1 ? "" : "s"}.`)
+					} else {
+						return msg.channel.send(lang.voiceMustJoin(msg))
+					}
+				}
 				if (args[1] == "remove") {
 					let index = +args[2]
 					if (isNaN(index) || index != Math.floor(index) || index <= 1 || index > queue.songs.length) {

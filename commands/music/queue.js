@@ -145,6 +145,7 @@ module.exports = passthrough => {
 				return this.songs.length
 			}
 			/**
+			 * Remove a song from the queue. The current playing song is 0 and cannot be removed. Index 1+ can be removed.
 			 * @param {Number} index
 			 * @returns {0|1|2}
 			 */
