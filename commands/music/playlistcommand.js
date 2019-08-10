@@ -221,7 +221,7 @@ module.exports = passthrough => {
 				let embed = new Discord.RichEmbed()
 				.setAuthor(author[0], author[1])
 				.setColor("36393E")
-				if (rows.join("\n").length + totalLength.length <= 2000) {
+				if (rows.length <= 22 && rows.join("\n").length + totalLength.length <= 2000) {
 					embed.setDescription(rows.join("\n")+totalLength)
 					msg.channel.send(utils.contentify(msg.channel, embed));
 				} else {
@@ -230,7 +230,7 @@ module.exports = passthrough => {
 					let currentPageLength = 0
 					let currentPageMaxLength = 2000 - totalLength.length
 					let itemsPerPage = 20
-					let itemsPerPageTolerance = 5
+					let itemsPerPageTolerance = 2
 					for (let i = 0; i < rows.length; i++) {
 						let row = rows[i]
 						if ((currentPage.length >= itemsPerPage && rows.length-i > itemsPerPageTolerance) || currentPageLength + row.length + 1 > currentPageMaxLength) {
@@ -243,7 +243,7 @@ module.exports = passthrough => {
 					}
 					pages.push(currentPage)
 					utils.paginate(msg.channel, pages.length, page => {
-						embed.setTitle(`Page ${page+1} of ${pages.length}`)
+						embed.setFooter(`Page ${page+1} of ${pages.length}`)
 						embed.setDescription(pages[page].join("\n") + totalLength)
 						return utils.contentify(msg.channel, embed)
 					})
