@@ -312,7 +312,7 @@ module.exports = function(passthrough) {
 						let numberOfSongs = handleSong(song, msg.channel, voiceChannel, false)
 						if (index == 0 && numberOfSongs == 1) isNewQueue = true
 					})
-					if (isNewQueue) msg.react("✅")
+					if (!isNewQueue) msg.react("✅")
 				})
 			}
 		}]
