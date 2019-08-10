@@ -112,7 +112,7 @@ module.exports = passthrough => {
 			 * Remove this queue from storage.
 			 */
 			destroy() {
-				this.queueManager.storage.delete(this.id);
+				this.queueManager.removeQueue(this)
 			}
 			/**
 			 * @param {Song} song

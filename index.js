@@ -56,7 +56,8 @@ let reactionMenus = {};
 		"./commands/meta.js",
 		"./commands/music/music.js",
 		"./commands/traa.js",
-		"./commands/web/server.js"
+		"./commands/web/server.js",
+		"./commands/alerts.js"
 	]);
 	
 	// no reloading for statuses. statuses will be periodically fetched from mysql.

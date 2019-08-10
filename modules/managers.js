@@ -20,6 +20,10 @@ module.exports = {
 			this.storage.set(queue.id, queue);
 			this.events.emit("new", queue);
 		},
+		removeQueue(queue) {
+			this.storage.delete(queue.id)
+			this.events.emit("remove")
+		},
 		events: new events.EventEmitter()
 	},
 	gameManager: {
