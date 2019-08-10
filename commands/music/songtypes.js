@@ -280,7 +280,8 @@ module.exports = passthrough => {
 			this.path = parts[1]
 			this.queue = null
 			/** @type {FriskyNowPlayingItem} */
-			this.info = null
+			this.previousInfo = null
+			this.info = new utils.AsyncValueCache(() => this._getInfo(), 60*1000)
 			this.loadingStream = false
 			this.filledBarOffset = 0
 			this.progressUpdateFrequency = 15000
@@ -339,7 +340,7 @@ module.exports = passthrough => {
 			]).then(array => array[1])
 		}
 		async getDetails() {
-			let info = await this._getInfo()
+			let info = await this.info.get()
 			let nextEpisode = await this._fetchNextEpisode()
 			return friskyDataToInfoEmbed(info, nextEpisode)
 		}
@@ -352,17 +353,18 @@ module.exports = passthrough => {
 		}
 		_startTitleUpdates() {
 			this.updateTitleInterval = setInterval(async () => {
-				this._updateTitle(true)
+				this.info.clear()
+				this._updateTitle()
 			}, 60000)
 			return this._updateTitle()
 		}
 		_stopTitleUpdates() {
 			clearInterval(this.updateTitleInterval)
 		}
-		async _updateTitle(refresh = false) {
+		async _updateTitle() {
 			let title = "Frisky Radio"
 			if (this.station != "frisky") title += " / "+this._getStationTitle()
-			let info = await this._getInfo(refresh)
+			let info = await this.info.get()
 			if (info && info.episode) title += " / "+info.episode.show_title+" / "+info.episode.artist_title
 			this.title = title
 		}
@@ -370,23 +372,23 @@ module.exports = passthrough => {
 		 * @param {Boolean} [refresh]
 		 * @returns {Promise<FriskyNowPlayingItem>}
 		 */
-		async _getInfo(refresh) {
-			if (!refresh && this.info) return this.info
-			return this.info = rp("https://www.friskyradio.com/api/v2/nowPlaying", {json: true}).then(data => {
+		_getInfo() {
+			return rp("https://www.friskyradio.com/api/v2/nowPlaying", {json: true}).then(data => {
 				let item = data.data.items.find(i => i.station == this.station)
-				this.info = item
-				setTimeout(() => this.events.emit("update")) // allow the title to update first?
-				return this.info
+				if (this.previousInfo && this.previousInfo.title != item.title) setImmediate(() => this.events.emit("update")) // allow the title to update first?
+				this.previousInfo = item
+				return item
 			}).catch(console.error)
 		}
-		_fetchNextEpisode() {
-			return rp("https://www.friskyradio.com/api/v2/shows"+this.info.episode.full_url, {json: true}).then(data => {
+		async _fetchNextEpisode() {
+			let info = await this.info.get()
+			return rp("https://www.friskyradio.com/api/v2/shows"+info.episode.full_url, {json: true}).then(data => {
 				let date = new Date(data.data.show.next_episode)
 				return "\nNext episode: "+utils.upcomingDate(date)
 			}).catch(() => "")
 		}
 		_getFilledBar() {
-			let part = "= ⋄ ==== ⋄ ==="
+			let part = "= ⋄ ===".repeat(2)
 			let fragment = part.substr(7-this.filledBarOffset, 7)
 			let bar = "​"+fragment.repeat(5)+"​"
 			this.filledBarOffset++
