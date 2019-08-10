@@ -35,7 +35,8 @@ module.exports = passthrough => {
 			return {
 				title: this.getTitle(),
 				length: this.getLength(),
-				thumbnail: this.getThumbnail()
+				thumbnail: this.getThumbnail(),
+				live: this.isLive
 			}
 		}
 		destroy() {
@@ -56,6 +57,7 @@ module.exports = passthrough => {
 			this.id = id
 			this.connectionPlayFunction = "playOpusStream"
 			this.canBePaused = true
+			this.isLive = false
 			this.url = "https://youtu.be/"+id
 			this.error = null
 			this.progressUpdateFrequency = 5000
@@ -238,6 +240,26 @@ module.exports = passthrough => {
 		}
 	}
 
+	function friskyDataToInfoEmbed(data, nextEpisode) {
+		let embed = new Discord.RichEmbed()
+		.setThumbnail(data.episode.occurrence_album_art.url)
+		.setTitle("FRISKY: "+data.title)
+		.setURL("https://www.friskyradio.com/show"+data.episode.full_url)
+		.setDescription(data.episode.occurrence_summary)
+		.setColor("e9268f")
+		.addField("Details",
+			`Show: ${data.show.title} / [view](https://www.friskyradio.com/show/${data.episode.show_url})`
+			+`\nEpisode: ${data.episode.occurrence_title} / [view](https://www.friskyradio.com/show${data.episode.full_url})`
+			+"\nArtist: "+data.episode.artist_title
+			+"\nEpisode genres: "+data.episode.genre.join(", ")
+			+"\nShow genres: "+data.show.genre.join(", ")
+			+"\nStation: "+data.episode.show_channel_title
+			+nextEpisode
+		)
+		if (data.episode.track_list.length) embed.addField("Track list", data.episode.track_list.map((v, i) => (i+1)+". "+v).join("\n"))
+		return embed
+	}
+
 	class FriskySong extends WebSong {
 		/**
 		 * @param {String} station Lowercase station from frisky, deep, chill
@@ -259,18 +281,20 @@ module.exports = passthrough => {
 			this.queue = null
 			/** @type {FriskyNowPlayingItem} */
 			this.info = null
-			this.actuallyStreaming = false
+			this.loadingStream = false
 			this.filledBarOffset = 0
 			this.progressUpdateFrequency = 15000
 			this.connectionPlayFunction = "playStream"
 			this.canBePaused = false
+			this.isLive = true
 			this.title = "Frisky Radio"
+			if (this.station != "frisky") this.title += ": "+this._getStationTitle()
 		}
 		getThumbnail() {
 			return {
-				src: "http://media.friskyradio.com.s3.amazonaws.com/logos_press/1352476361-FRISKY_mark_preview.png",
-				width: 568,
-				height: 290
+				src: "/images/frisky-small.png",
+				width: 320,
+				height: 180
 			}
 		}
 		getUniqueID() {
@@ -283,11 +307,11 @@ module.exports = passthrough => {
 			return null
 		}
 		getTitle() {
-			return this.title + (this.actuallyStreaming ? "" : " (loading...)")
+			return this.title + (this.loadingStream ? " (loading...)" : "")
 		}
 		getProgress(time) {
 			time = common.prettySeconds(Math.round(time/1000))
-			let bar = this.actuallyStreaming ? this._getFilledBar() : "- ".repeat(17)+"-"
+			let bar = this.loadingStream ? "- ".repeat(17)+"-" : this._getFilledBar()
 			return `\`[ ${time} ${bar} LIVE ]\``
 		}
 		prepare() {
@@ -298,6 +322,8 @@ module.exports = passthrough => {
 		 * @return {Promise<net.Socket>}
 		 */
 		async getStream() {
+			this.loadingStream = true
+			this.events.emit("update")
 			let socket = new net.Socket()
 			return Promise.all([
 				this._startTitleUpdates(),
@@ -305,7 +331,7 @@ module.exports = passthrough => {
 					socket.connect(80, this.host, () => {
 						socket.write(`GET ${this.path} HTTP/1.0\r\n\r\n`)
 						socket.once("data", () => {
-							this.actuallyStreaming = true
+							this.loadingStream = false
 						})
 						resolve(socket)
 					})
@@ -315,23 +341,7 @@ module.exports = passthrough => {
 		async getDetails() {
 			let info = await this._getInfo()
 			let nextEpisode = await this._fetchNextEpisode()
-			let embed = new Discord.RichEmbed()
-			.setThumbnail(info.episode.occurrence_album_art.url)
-			.setTitle("FRISKY: "+info.title)
-			.setURL("https://www.friskyradio.com/show"+info.episode.full_url)
-			.setDescription(info.episode.occurrence_summary)
-			.setColor("e9268f")
-			.addField("Details",
-				`Show: ${info.show.title} / [view](https://www.friskyradio.com/show/${info.episode.show_url})`
-				+`\nEpisode: ${info.episode.occurrence_title} / [view](https://www.friskyradio.com/show${info.episode.full_url})`
-				+"\nArtist: "+info.episode.artist_title
-				+"\nEpisode genres: "+info.episode.genre.join(", ")
-				+"\nShow genres: "+info.show.genre.join(", ")
-				+"\nStation: "+info.episode.show_channel_title
-				+nextEpisode
-			)
-			if (info.episode.track_list.length) embed.addField("Track list", info.episode.track_list.map((v, i) => (i+1)+". "+v).join("\n"))
-			return embed
+			return friskyDataToInfoEmbed(info, nextEpisode)
 		}
 		destroy() {
 			this._stopTitleUpdates()
@@ -351,9 +361,9 @@ module.exports = passthrough => {
 		}
 		async _updateTitle(refresh = false) {
 			let title = "Frisky Radio"
-			if (this.station != "frisky") title += " ⧸ "+this._getStationTitle()
+			if (this.station != "frisky") title += " / "+this._getStationTitle()
 			let info = await this._getInfo(refresh)
-			if (info && info.episode) title += " ⧸ "+info.episode.show_title+" ⧸ "+info.episode.artist_title
+			if (info && info.episode) title += " / "+info.episode.show_title+" / "+info.episode.artist_title
 			this.title = title
 		}
 		/**
@@ -365,7 +375,7 @@ module.exports = passthrough => {
 			return this.info = rp("https://www.friskyradio.com/api/v2/nowPlaying", {json: true}).then(data => {
 				let item = data.data.items.find(i => i.station == this.station)
 				this.info = item
-				this.events.emit("update")
+				setTimeout(() => this.events.emit("update")) // allow the title to update first?
 				return this.info
 			}).catch(console.error)
 		}
@@ -408,6 +418,7 @@ module.exports = passthrough => {
 			this.canBePaused = true
 			this.progressUpdateFrequency = 5000
 			this.lengthSeconds = 0
+			this.isLive = false
 			this.connection = null
 			this.urlCache = new utils.AsyncValueCache(() => this._getURL(), 1000*60*60)
 			this.relatedCache = new utils.AsyncValueCache(() => this._getRelated())
@@ -447,6 +458,14 @@ module.exports = passthrough => {
 				this.error = "Frisky past mix request failed. Details are in the logs."
 				return null
 			})
+		}
+		_getNextEpisode() {
+			try {
+				let date = new Date(this.data.show.next_episode)
+				if (date) return "\nNext episode: "+utils.upcomingDate(date)
+				// else fall through to empty string
+			} catch (_) {} // on error fall through to empty string
+			return ""
 		}
 		getUniqueID() {
 			return "friskypast_"+this._getID()
@@ -498,7 +517,7 @@ module.exports = passthrough => {
 			return this.prepare().then(() => this._getConnection()).then(connection => this.connection = connection)
 		}
 		getDetails() {
-			return "https://www.friskyradio.com/"+this.data.episodes[0].episode.full_url
+			return friskyDataToInfoEmbed(this.data, this._getNextEpisode())
 		}
 		destroy() {
 			if (this.connection) this.connection.connection.end()

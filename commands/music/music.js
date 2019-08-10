@@ -370,22 +370,43 @@ module.exports = function(passthrough) {
 			aliases: ["frisky"],
 			category: "music",
 			process: async function(msg, suffix) {
-				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg));
-				const voiceChannel = msg.member.voiceChannel;
-				if (!voiceChannel) return msg.channel.send(lang.voiceMustJoin(msg));
-				if (suffix.startsWith("https://www.friskyradio.com/show")) {
-					let paths = suffix.split("/");
-					try {
-						var episode = await rp(`https://www.friskyradio.com/api/v2/shows/${paths[4]}/${paths[5]}/${paths[6]}`, {json:true})
-					} catch(e) {
-						return msg.channel.send("Couldn't fetch that episode. Are you sure the URL is correct?")
+				if (msg.channel.type == "dm") return msg.channel.send(lang.command.guildOnly(msg))
+				const voiceChannel = msg.member.voiceChannel
+				if (!voiceChannel) return msg.channel.send(lang.voiceMustJoin(msg))
+				/*
+					Things that can be passed to frisky:
+					- a station
+					- a full episode URL
+					- a short episode URL
+					To do:
+					- a show URL
+					- a show name
+					- ask what's playing
+				*/
+				if (suffix.startsWith("https://www.friskyradio.com/show/")) {
+					// It's either a show, a short episode, or full episode
+					// ...friskyradio.com / show / show_name / date? / episode_name?
+					let paths = suffix.slice(9).split("/")
+					if (paths.length == 3) {
+						// Show
+						return msg.channel.send("coming soon :(")
+					} else if (paths.length == 4 || paths.length == 5) {
+						// Episode
+						let urlSuffix = paths.slice(2).join("/")
+						try {
+							let episode = await rp(`https://www.friskyradio.com/api/v2/shows/`+urlSuffix, {json: true})
+							let song = new songTypes.PastFriskySong(episode.data);
+							return handleSong(song, msg.channel, voiceChannel, false, msg);
+						} catch(e) {
+							return msg.channel.send("Couldn't fetch that episode. Are you sure the URL is correct?")
+						}
 					}
-					let song = new songTypes.PastFriskySong(episode.data);
-					return handleSong(song, msg.channel, voiceChannel);
-				} else {
-					let station = ["frisky", "deep", "chill"].includes(suffix) ? suffix : "frisky";
+				} else if (suffix == "" || suffix == "frisky" || suffix == "deep" || suffix == "chill") {
+					let station = suffix || "frisky"
 					let song = new songTypes.FriskySong(station);
-					return handleSong(song, msg.channel, voiceChannel);
+					return handleSong(song, msg.channel, voiceChannel, false, msg);
+				} else {
+					return msg.channel.send("Please give me a station name or a link to an episode.")
 				}
 			}
 		},

@@ -669,13 +669,13 @@ module.exports = (passthrough) => {
 				}
 				_getNew() {
 					this.promise = this.getter()
-					this.promise.then(result => {
+					return this.promise.then(result => {
 						this.cache = result
 						this.promise = null
 						clearTimeout(this.lifetimeTimeout)
-						this.lifetimeTimeout = setTimeout(() => this.clear(), this.lifetime)
+						if (this.lifetime) this.lifetimeTimeout = setTimeout(() => this.clear(), this.lifetime)
+						return result
 					})
-					return this.promise
 				}
 			}
 		}
