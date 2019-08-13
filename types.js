@@ -1,6 +1,6 @@
 /**
  * @typedef {Object} PassthroughType
- * @property {{bot_token: String, fake_token: String, mysql_password: String, yt_api_key: String, chewey_api_key: String, website_protocol: String, website_domain: String, is_staging: Boolean}} config
+ * @property {{bot_token: String, fake_token: String, mysql_password: String, yt_api_key: String, chewey_api_key: String, website_protocol: String, website_domain: String, is_staging: Boolean, music_dash_enabled: Boolean}} config
  * @property {import("discord.js").Client} client
  * @property {import("./modules/commandstore")} commands
  * @property {import("mysql2/promise").PromisePool} db
