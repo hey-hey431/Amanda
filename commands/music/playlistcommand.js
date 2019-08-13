@@ -32,9 +32,32 @@ module.exports = passthrough => {
 		command: async function(msg, args, bulkPlayCallback) {
 			let playlistName = args[1];
 			if (playlistName == "show") {
-				let playlists = await utils.sql.all("SELECT * FROM Playlists")
+				let playlists = await utils.sql.all(
+					"SELECT Playlists.playlistID, Playlists.name, Playlists.author, Playlists.playCount, count(*) as count, sum(Songs.length) as length"
+					+" FROM PlaylistSongs"
+					+" INNER JOIN Songs USING (videoID) INNER JOIN Playlists USING (playlistID)"
+					+" GROUP BY playlistID"
+					+" UNION"
+					+" SELECT Playlists.playlistID, Playlists.name, Playlists.author, Playlists.playCount, 0, 0"
+					+" FROM Playlists"
+					+" LEFT JOIN PlaylistSongs USING (playlistID)"
+					+" WHERE videoID IS NULL"
+				)
 				playlists = playlists.shuffle()
-				playlists = playlists.sort((a, b) => (b.playCount - a.playCount))
+				playlists = playlists.map(p => {
+					p.ranking = "" // higher ascii value is better
+					function addRanking(r) {
+						p.ranking += r+"."
+					}
+					if (p.count == 0) addRanking(0)
+					else addRanking(1)
+					addRanking(p.playCount.toString().padStart(8, "0"))
+					return p
+				}).sort((a, b) => {
+					if (a.ranking < b.ranking) return 1
+					else if (b.ranking < a.ranking) return -1
+					else return 0
+				})
 				function getAuthor(author) {
 					let user = client.users.get(author)
 					if (user) {
@@ -42,18 +65,20 @@ module.exports = passthrough => {
 						if (username.length > 14) username = username.slice(0, 13)+"…"
 						return "`"+Discord.Util.escapeMarkdown(username)+"`"
 					} else {
-						return ""
+						return "(?)"
 					}
 				}
 				return utils.createPagination(
 					msg.channel
-					,["Playlist", "Plays", "`Author`"]
+					,["Playlist", "Songs", "Length", "Plays", "`Author`"]
 					,playlists.map(p => [
 						p.name
+						,p.count.toString()
+						,common.prettySeconds(p.length)
 						,p.playCount.toString()
 						,getAuthor(p.author)
 					])
-					,["left", "right", ""]
+					,["left", "right", "right", "right", ""]
 					,2000
 				)
 			}
@@ -167,10 +192,14 @@ module.exports = passthrough => {
 					title: row.name,
 					length_seconds: row.length
 				}));
-				if (typeof(playlistRow.playCount) == "number") {
-					utils.sql.all("UPDATE Playlists SET playCount = ? WHERE playlistID = ?", [playlistRow.playCount+1, playlistRow.playlistID])
+				if (rows.length > 0) {
+					if (typeof(playlistRow.playCount) == "number") {
+						utils.sql.all("UPDATE Playlists SET playCount = ? WHERE playlistID = ?", [playlistRow.playCount+1, playlistRow.playlistID])
+					}
+					bulkPlayCallback(rows);
+				} else {
+					msg.channel.send("That playlist doesn't have any songs in it.")
 				}
-				bulkPlayCallback(rows);
 			} else if (action.toLowerCase() == "import") {
 				if (playlistRow.author != msg.author.id) return msg.channel.send(lang.playlistNotOwned(msg));
 				if (args[3].match(/^https?:\/\/(www.youtube.com|youtube.com)\/playlist(.*)$/)) {
