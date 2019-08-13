@@ -204,6 +204,41 @@ module.exports = (passthrough) => {
 					return (await utils.sql.all(string, prepared, connection))[0];
 				}
 			},
+			tableifyRows: function(rows, align, surround = () => "", spacer = " ") { //SC: en space
+				/** @type {String[]} */
+				let output = []
+				let maxLength = []
+				for (let i = 0; i < rows[0].length; i++) {
+					let thisLength = 0
+					for (let j = 0; j < rows.length; j++) {
+						if (thisLength < rows[j][i].length) thisLength = rows[j][i].length
+					}
+					maxLength.push(thisLength)
+				}
+				for (let i = 0; i < rows.length; i++) {
+					let line = ""
+					for (let j = 0; j < rows[0].length; j++) {
+						if (align[j] == "left" || align[j] == "right") {
+							line += surround(i)
+							if (align[j] == "left") {
+								let pad = " ​"
+								let padding = pad.repeat(maxLength[j] - rows[i][j].length)
+								line += rows[i][j] + padding
+							} else if (align[j] == "right") {
+								let pad = "​ "
+								let padding = pad.repeat(maxLength[j] - rows[i][j].length)
+								line += padding + rows[i][j]
+							}
+							line += surround(i)
+						} else {
+							line += rows[i][j]
+						}
+						if (j < rows[0].length - 1) line += spacer
+					}
+					output.push(line)
+				}
+				return output
+			},
 			/**
 			 * @returns {mysql.PromisePoolConnection}
 			 */
@@ -591,6 +626,52 @@ module.exports = (passthrough) => {
 					}
 					return reconstruction.get("left").concat(reconstruction.get("right").reverse());
 				}
+			},
+
+			/**
+			 * @param {String[]} rows
+			 * @param {Number} maxLength
+			 * @param {Number} itemsPerPage
+			 * @param {Number} itemsPerPageTolerance
+			 */
+			createPages: function(rows, maxLength, itemsPerPage, itemsPerPageTolerance) {
+				let pages = []
+				let currentPage = []
+				let currentPageLength = 0
+				let currentPageMaxLength = maxLength
+				for (let i = 0; i < rows.length; i++) {
+					let row = rows[i]
+					if ((currentPage.length >= itemsPerPage && rows.length-i > itemsPerPageTolerance) || currentPageLength + row.length + 1 > currentPageMaxLength) {
+						pages.push(currentPage)
+						currentPage = []
+						currentPageLength = 0
+					}
+					currentPage.push(row)
+					currentPageLength += row.length+1
+				}
+				pages.push(currentPage)
+				return pages
+			},
+
+			/**
+			 * @param {Discord.TextChannel} channel
+			 * @param {String[]} title
+			 * @param {String[][]} rows
+			 */
+			createPagination: function(channel, title, rows, align, maxLength) {
+				let alignedRows = utils.tableifyRows([title].concat(rows), align, () => "`")
+				let formattedTitle = alignedRows[0].replace(/`.+?`/g, sub => "__**`"+sub+"`**__")
+				alignedRows = alignedRows.slice(1)
+				let pages = utils.createPages(alignedRows, maxLength-formattedTitle.length-1, 16, 4)
+				utils.paginate(channel, pages.length, page => {
+					return utils.contentify(channel,
+						new Discord.RichEmbed()
+						.setTitle("Viewing all playlists")
+						.setColor(0x36393F)
+						.setDescription(formattedTitle + "\n" + pages[page].join("\n"))
+						.setFooter(`Page ${page+1} of ${pages.length}`)
+					)
+				})
 			},
 
 			/**

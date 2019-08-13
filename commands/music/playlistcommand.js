@@ -32,8 +32,30 @@ module.exports = passthrough => {
 		command: async function(msg, args, bulkPlayCallback) {
 			let playlistName = args[1];
 			if (playlistName == "show") {
-				let playlists = await utils.sql.all("SELECT * FROM Playlists");
-				return msg.channel.send(utils.contentify(msg.channel, new Discord.RichEmbed().setTitle("Available playlists").setColor("36393E").setDescription(playlists.map(p => p.name).join("\n"))));
+				let playlists = await utils.sql.all("SELECT * FROM Playlists")
+				playlists = playlists.shuffle()
+				playlists = playlists.sort((a, b) => (b.playCount - a.playCount))
+				function getAuthor(author) {
+					let user = client.users.get(author)
+					if (user) {
+						let username = user.username
+						if (username.length > 14) username = username.slice(0, 13)+"…"
+						return "`"+Discord.Util.escapeMarkdown(username)+"`"
+					} else {
+						return ""
+					}
+				}
+				return utils.createPagination(
+					msg.channel
+					,["Playlist", "Plays", "`Author`"]
+					,playlists.map(p => [
+						p.name
+						,p.playCount.toString()
+						,getAuthor(p.author)
+					])
+					,["left", "right", ""]
+					,2000
+				)
 			}
 			if (!playlistName) return msg.channel.send(msg.author.username+", you must name a playlist. Use `&music playlists show` to show all playlists.");
 			let playlistRow = await utils.sql.get("SELECT * FROM Playlists WHERE name = ?", playlistName);
@@ -145,6 +167,9 @@ module.exports = passthrough => {
 					title: row.name,
 					length_seconds: row.length
 				}));
+				if (typeof(playlistRow.playCount) == "number") {
+					utils.sql.all("UPDATE Playlists SET playCount = ? WHERE playlistID = ?", [playlistRow.playCount+1, playlistRow.playlistID])
+				}
 				bulkPlayCallback(rows);
 			} else if (action.toLowerCase() == "import") {
 				if (playlistRow.author != msg.author.id) return msg.channel.send(lang.playlistNotOwned(msg));
