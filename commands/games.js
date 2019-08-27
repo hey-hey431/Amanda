@@ -160,8 +160,12 @@ module.exports = function(passthrough) {
 			else embed.setFooter(`${lang.permissionDeniedGeneric("add reactions")}\nType \`&t\` for another round`);
 			return this.channel.send(utils.contentify(this.channel, embed)).then(msg => {
 				new utils.ReactionMenu(msg, [
-					{emoji: client.emojis.get("362741439211503616"), ignore: "total", actionType: "js", actionData: () => {
-						startGame(this.channel, {category: this.category});
+					{emoji: client.emojis.get("362741439211503616"), ignore: "total", actionType: "js", actionData: (msg, emoji, user) => {
+						if (user.bot) {
+							msg.channel.send(user+" SHUT UP!!!!!!!!")
+						} else {
+							startGame(this.channel, {category: this.category});
+						}
 					}}
 				]);
 			});
