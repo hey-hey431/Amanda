@@ -70,7 +70,7 @@ commands.assign([
 			canvas.composite(images.get("slot-amanda").clone(), 0, 0)
 			canvas.composite(images.get("slot-machine").clone(), 0, 0)
 			const pieces = []
-			slots.forEach(i => pieces.push(images.get(`emoji-${i}`)))
+			slots.forEach(i => pieces.push(images.get(`emoji-${i}`).resize(85, 85)))
 
 			canvas.composite(pieces[0], 100, 560)
 			canvas.composite(pieces[1], 258, 560)
@@ -443,7 +443,7 @@ commands.assign([
 			else if (choice == "2.4") coords = [50, 245, 200]
 
 			const canvas = canv.clone()
-			const arrow = triangle.clone()
+			const arrow = triangle.clone().resize(50, 50)
 
 			const [rotation, x, y] = coords
 
