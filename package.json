@@ -6,7 +6,7 @@
   "author": "PapiOphidian",
   "scripts": {
     "compile": "tsc -p .",
-    "start": "node --expose-gc --optimize_for_size index.js",
+    "start": "node --expose-gc --optimize_for_size dist/src/index.js",
     "website": "cd website && node server.js",
     "test": "tap"
   },
@@ -45,7 +45,8 @@
     "snowgate": "github:AmandaDiscord/SnowGate#74a652149dd43ff1604bc069c2f568e417d9b6a6",
     "snowtransfer": "github:AmandaDiscord/SnowTransfer#456813e5eb551ddeab7bf6148a9b3651261d6f0a",
     "taihou": "^2.0.4",
-    "thunderstorm": "github:AmandaDiscord/ThunderStorm#274c4fb14bfdcbcaa7fd38afc252031fcda222d1"
+    "thunderstorm": "github:AmandaDiscord/ThunderStorm#274c4fb14bfdcbcaa7fd38afc252031fcda222d1",
+    "typescript": "~4.1.3"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^4.13.0",
@@ -57,7 +58,6 @@
     "@types/node-ipc": "^9.1.3",
     "@types/tap": "^14.10.1",
     "eslint": "^7.17.0",
-    "tap": "^14.11.0",
-    "typescript": "~4.1.3"
+    "tap": "^14.11.0"
   }
 }

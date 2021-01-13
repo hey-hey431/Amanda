@@ -9,7 +9,7 @@ const config = require("../config")
 const dba = require("discord-bot-analytics")
 const Reloader = require("@amanda/reloader")
 const path = require("path")
-const CacheRequester = require("../modules/managers/CacheRequester")
+const CacheRequester = require("../dist/src/modules/managers/CacheRequester")
 require("dnscache")({ enable: true })
 
 // Passthrough
@@ -48,7 +48,7 @@ reloader.watch(["./website/modules/utilities.js"])
 const IPC = require("./modules/ipcserver.js")
 const ipc = new IPC("website", config.website_ipc_bind, 6544)
 passthrough.ipc = ipc
-reloader.watch(["./modules/ipc/ipcreplier.js"])
+reloader.watch(["./dist/src/modules/ipc/ipcreplier.js"])
 reloader.watchAndLoad(["./website/modules/ipcserverreplier.js"])
 
 const analytics = new dba(config.chewey_api_key, null)

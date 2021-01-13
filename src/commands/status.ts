@@ -1,16 +1,16 @@
 // @ts-check
 
-const passthrough = require("../passthrough")
-const { client, config, constants, reloader, ipc, commands, internalEvents } = passthrough
+import passthrough from "../passthrough"
+const { client, config, reloader, ipc, commands, internalEvents } = passthrough
 
-const utils = require("../modules/utilities")
+import utils from "../modules/utilities"
 reloader.sync("./modules/utilities/index.js", utils)
 
 const refreshTime = 15 * 60 * 1000
 const updateTime = 5 * 60 * 1000
 
-let messages, ranges, users, prefix, updateInterval
-let enqueued
+let messages: Array<any>, ranges: Array<any>, users: Array<any>, prefix: string, updateInterval: NodeJS.Timeout
+let enqueued: NodeJS.Timeout | undefined
 
 const activities = {
 	"PLAYING": 0,
@@ -20,14 +20,10 @@ const activities = {
 	"COMPETING": 5
 }
 
-/**
- * @param {number} duration
- * @param {string} message
- */
-function startAnnouncement(duration, message) {
+
+function startAnnouncement(duration: number, message: string) {
 	clearInterval(updateInterval)
-	/** @type {{ name: string, type: 0 | 1 | 2 | 3 | 5, url: string }} */
-	const data = {
+	const data: { name: string, type: 0 | 1 | 2 | 3 | 5, url: string } = {
 		name: message,
 		type: 0,
 		url: "https://www.twitch.tv/papiophidian/"
@@ -39,7 +35,7 @@ function startAnnouncement(duration, message) {
 	}, duration)
 }
 
-ipc.replier.addReceivers([
+ipc.replier!.addReceivers([
 	["apply_announcement_PRESENCE_ANNOUNCEMENT", {
 		op: "PRESENCE_ANNOUNCEMENT",
 		fn: ({ duration, message }) => {
@@ -65,12 +61,12 @@ commands.assign([
 			const args = suffix.split(" ")
 			if (!args[0]) return msg.channel.send("You need to provide a duration in ms and a message to announce")
 			const dur = args[0]
-			const duration = utils.parseDuration(dur)
+			const duration = utils.parseDuration(dur)!
 			if (isNaN(duration) || duration === 0) return msg.channel.send("That's not a valid duration")
 			if (!args[1]) return msg.channel.send("You need to provide a message to announce")
 			const message = suffix.substring(args[0].length + 1)
 			// The announcement gets beamed to all shards including us, so don't trigger a change here since it'll come in anyway.
-			ipc.replier.sendPresenceAnnouncement(duration, message)
+			ipc.replier!.sendPresenceAnnouncement(duration, message)
 			msg.channel.send(`New presence set for ${utils.shortTime(duration, "ms").trim()}: \`${message}\``)
 		}
 	}
@@ -100,7 +96,7 @@ internalEvents.once("prefixes", async (prefixes, statusPrefix) => {
 
 /** @return {Array<string>} */
 function getCurrentGroups() {
-	return users.filter(o => o.userID == client.user.id).map(o => o.label)
+	return users.filter(o => o.userID == client.user!.id).map(o => o.label)
 }
 
 function getCurrentRanges() {
@@ -142,8 +138,8 @@ function getCurrentRanges() {
 function getMatchingMessages() {
 	const currentRanges = getCurrentRanges()
 	const groupsBotIsIn = getCurrentGroups()
-	const regional = []
-	let constant = []
+	const regional: any[] = []
+	let constant: Array<any> = []
 	messages.forEach(message => {
 		if (message.dates && !currentRanges.includes(message.dates)) return false // criteria exists and didn't match
 		if (message.users && !groupsBotIsIn.includes(message.users)) return false // criteria exists and didn't match
@@ -160,6 +156,7 @@ function update() {
 	const choice = utils.arrayRandom(choices)
 	if (choice) {
 		let type
+		// @ts-ignore
 		if (typeof choice.type === "string") type = activities[choice.type]
 		else type = choice.type
 		const data = {

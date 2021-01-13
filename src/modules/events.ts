@@ -1,6 +1,6 @@
 // @ts-check
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import path from "path"
 import { Manager } from "lavacord"
 import fetch from "node-fetch"
@@ -111,7 +111,7 @@ utils.addTemporaryListener(client, "raw", path.basename(__filename), event => {
 })
 
 
-async function manageMessage(msg: Discord.Message, isEdit = false) {
+async function manageMessage(msg: import("thunderstorm").Message, isEdit = false) {
 	if (msg.author.bot) {
 		if (!msg.webhookID) {
 			return

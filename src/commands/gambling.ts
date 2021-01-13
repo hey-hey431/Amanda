@@ -1,7 +1,7 @@
 // @ts-check
 
 import Jimp from "jimp"
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
 import emojis from "../modules/emojis"
 
@@ -125,11 +125,6 @@ commands.assign([
 		aliases: ["flip"],
 		category: "gambling",
 		examples: ["flip"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		process(msg, suffix, lang) {
 			const flip = utils.arrayRandom(["heads <:coinH:402219464348925954>", "tails <:coinT:402219471693021196>"])
 			return msg.channel.send(utils.replace(lang.gambling.flip.returns.flip, { "flip": flip }))
@@ -141,11 +136,6 @@ commands.assign([
 		aliases: ["betflip", "bf"],
 		category: "gambling",
 		examples: ["bf 1000 h"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(utils.replace(lang.gambling.betflip.prompts.guildOnly, { "username": msg.author.username }))
 			const args = suffix.split(" ")
@@ -231,11 +221,6 @@ commands.assign([
 		aliases: ["coins", "$", "balance", "bal", "discoins", "amandollars"],
 		category: "gambling",
 		examples: ["coins PapiOphidian"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			let user, member
 			if (msg.channel.type == "text") {
@@ -271,11 +256,6 @@ commands.assign([
 		aliases: ["daily"],
 		category: "gambling",
 		examples: ["daily"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(utils.replace(lang.gambling.daily.prompts.guildOnly, { "username": msg.author.username }))
 			const [row, donor] = await Promise.all([
@@ -304,11 +284,6 @@ commands.assign([
 		aliases: ["leaderboard", "lb"],
 		category: "gambling",
 		examples: ["lb 2"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			const maxPages = 20
 			const itemsPerPage = 10
@@ -383,11 +358,6 @@ commands.assign([
 		aliases: ["give"],
 		category: "gambling",
 		examples: ["give half PapiOphidian"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(utils.replace(lang.gambling.give.prompts.guildOnly, { "username": msg.author.username }))
 			const args = suffix.split(" ")
@@ -436,11 +406,6 @@ commands.assign([
 		aliases: ["wheel", "wof"],
 		category: "gambling",
 		examples: ["wheel 1000"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(utils.replace(lang.gambling.wheel.prompts.guildOnly, { "username": msg.author.username }))
 			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild!.id }, 0x00008000))) return msg.channel.send(lang.gambling.wheel.prompts.permissionDenied)
@@ -458,13 +423,13 @@ commands.assign([
 				if (suffix == "all") {
 					amount = money
 				} else {
-					amount = Math.floor(money / 2)
+					amount = Math.floor(money! / 2)
 				}
 			} else {
 				amount = Math.floor(utils.parseNumber(suffix))
 				if (isNaN(amount)) return msg.channel.send(utils.replace(lang.gambling.wheel.prompts.invalidAmount, { "username": msg.author.username }))
 				if (amount < 2) return msg.channel.send(utils.replace(lang.gambling.wheel.prompts.betSmall, { "username": msg.author.username }))
-				if (amount > money) return msg.channel.send(utils.replace(lang.gambling.wheel.prompts.moneyInsufficient, { "username": msg.author.username }))
+				if (amount > money!) return msg.channel.send(utils.replace(lang.gambling.wheel.prompts.moneyInsufficient, { "username": msg.author.username }))
 			}
 
 			const choices = ["0.1", "0.2", "0.3", "0.5", "1.2", "1.5", "1.7", "2.4"]
@@ -494,8 +459,8 @@ commands.assign([
 
 			const buffer = await canvas.getBufferAsync(Jimp.MIME_PNG)
 			const image = new Discord.MessageAttachment(buffer, "wheel.png")
-			await utils.coinsManager.award(msg.author.id, Math.round((amount * Number(choice)) - amount))
-			return msg.channel.send(utils.replace(lang.gambling.wheel.returns.winnings, { "tag": msg.author.tag, "number1": utils.numberComma(amount), "number2": utils.numberComma(Math.round(amount * Number(choice))) }), { file: image })
+			await utils.coinsManager.award(msg.author.id, Math.round((amount! * Number(choice)) - amount!))
+			return msg.channel.send(utils.replace(lang.gambling.wheel.returns.winnings, { "tag": msg.author.tag, "number1": utils.numberComma(amount as number), "number2": utils.numberComma(Math.round(amount as number * Number(choice))) }), { file: image })
 		}
 	}
 ])

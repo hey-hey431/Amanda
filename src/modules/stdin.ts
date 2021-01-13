@@ -1,6 +1,6 @@
 // @ts-check
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import path from "path"
 import repl from "repl"
 import util from "util"

@@ -2,7 +2,7 @@
 
 import fetch from "node-fetch"
 import entities from "entities"
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import path from "path"
 import ReactionMenu from "@amanda/reactionmenu"
 
@@ -23,14 +23,14 @@ streaks.setDestroyDuration("trivia", 1000 * 60 * 15)
 import utils from "../modules/utilities"
 reloader.sync("./modules/utilities/index.js", utils)
 
-class Game {
-	channel: Discord.PartialChannel
+export class Game {
+	channel: import("thunderstorm").PartialChannel
 	type: string
 	manager: import("../modules/managers/GameManager")
 	id: string
 	receivedAnswers: Map<string, any> | undefined
 
-	constructor(channel: Discord.PartialChannel, type: string) {
+	constructor(channel: import("thunderstorm").PartialChannel, type: string) {
 		this.channel = channel
 		this.type = type
 		this.manager = games
@@ -48,9 +48,8 @@ class Game {
 		// intentionally empty
 	}
 }
-module.exports.Game = Game
 
-class TriviaGame extends Game {
+export class TriviaGame extends Game {
 	data: any
 	category: number
 	earningsDisabled: boolean
@@ -61,13 +60,7 @@ class TriviaGame extends Game {
 	color: number | undefined
 	timer: NodeJS.Timeout | undefined
 
-	/**
-	 * @param {Discord.PartialChannel} channel
-	 * @param {{response_code: number, results: Array<TriviaResponse>}} data
-	 * @param {number} category
-	 * @param {Lang.Lang} lang
-	 */
-	constructor(channel: Discord.PartialChannel, data: { response_code: number; results: Array<TriviaResponse> }, category: number, lang: import("@amanda/lang").Lang) {
+	constructor(channel: import("thunderstorm").PartialChannel, data: { response_code: number; results: Array<TriviaResponse> }, category: number, lang: import("@amanda/lang").Lang) {
 		super(channel, "trivia")
 		this.data = data.results[0]
 		this.category = category
@@ -114,7 +107,7 @@ class TriviaGame extends Game {
 	/**
 	 * @param {Discord.Message} msg
 	 */
-	addAnswer(msg: Discord.Message) {
+	addAnswer(msg: import("thunderstorm").Message) {
 		// Check answer is a single letter
 		if (msg.content.length != 1) return
 		// Get answer index
@@ -183,15 +176,8 @@ class TriviaGame extends Game {
 		})
 	}
 }
-module.exports.TriviaGame = TriviaGame
 
-/**
- * @param {string} body
- * @param {Discord.PartialChannel} channel
- * @param {Lang.Lang} lang
- * @returns {Promise<[boolean, any]>}
- */
-async function JSONHelper(body: string, channel: Discord.PartialChannel, lang: import("@amanda/lang").Lang): Promise<[boolean, any]> {
+async function JSONHelper(body: string, channel: import("thunderstorm").PartialChannel, lang: import("@amanda/lang").Lang): Promise<[boolean, any]> {
 	try {
 		if (body.startsWith("http")) body = await fetch(body).then(data => data.json())
 		return [true, body]
@@ -202,11 +188,8 @@ async function JSONHelper(body: string, channel: Discord.PartialChannel, lang: i
 		return [false, channel.send(await utils.contentify(channel, embed))]
 	}
 }
-/**
- * @param {Discord.PartialChannel} channel
- * @param {{ suffix?: string, msg?: Discord.Message, category?: number, lang: Lang.Lang }} options
- */
-async function startGame(channel: Discord.PartialChannel, options: { suffix?: string; msg?: Discord.Message; category?: number; lang: import("@amanda/lang").Lang }) {
+
+async function startGame(channel: import("thunderstorm").PartialChannel, options: { suffix?: string; msg?: import("thunderstorm").Message; category?: number; lang: import("@amanda/lang").Lang }) {
 	// Select category
 	let category = options.category || null
 	if (options.suffix) {
@@ -250,7 +233,7 @@ async function startGame(channel: Discord.PartialChannel, options: { suffix?: st
 	new TriviaGame(channel, data, category!, options.lang).init()
 }
 utils.addTemporaryListener(client, "message", path.basename(__filename), answerDetector)
-function answerDetector(msg: Discord.Message) {
+function answerDetector(msg: import("thunderstorm").Message) {
 	/** @type {TriviaGame} */
 	// @ts-ignore
 	const game: TriviaGame = games.cache.find(g => g.id == msg.channel.id && g.type == "trivia")
@@ -402,12 +385,7 @@ commands.assign([
 		aliases: ["trivia", "t"],
 		category: "games",
 		examples: ["t Science: Computers"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
-		process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		process(msg, suffix, lang) {
 			startGame(msg.channel, { suffix, msg, lang })
 		}
 	},
@@ -417,12 +395,7 @@ commands.assign([
 		aliases: ["minesweeper", "ms"],
 		category: "games",
 		examples: ["ms hard --raw --size:10"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
-		async process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			let size = 8, difficulty = "easy"
 			let title
 			const sfx = suffix.toLowerCase()

@@ -1,6 +1,6 @@
 // @ts-check
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import Lavalink from "lavacord"
 import RainCache from "raincache"
 
@@ -47,7 +47,7 @@ class Amanda extends Discord.Client {
 	 */
 	private passthrough: typeof passthrough
 
-	constructor(options: Discord.ClientOptions) {
+	constructor(options: import("thunderstorm").ClientOptions) {
 		super(options)
 		// @ts-ignore
 		this.lavalink = undefined

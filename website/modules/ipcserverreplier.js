@@ -1,7 +1,5 @@
 // @ts-check
 
-const types = require("../../typings")
-
 const path = require("path")
 
 const passthrough = require("../passthrough")
@@ -9,7 +7,7 @@ const { reloader, ipc } = passthrough
 
 const utils = require("../modules/utilities")
 
-const Replier = require("../../modules/ipc/ipcreplier")
+const Replier = require("../../dist/src/modules/ipc/ipcreplier")
 utils.addTemporaryListener(reloader.reloadEvent, "ipcreplier.js", path.basename(__filename), () => {
 	setImmediate(() => { // event is emitted synchronously before decache, so wait for next event loop
 		reloader.resync("./website/modules/ipcserverreplier.js")
@@ -172,7 +170,7 @@ class ServerReplier extends Replier {
 
 	/**
 	 * @param {string} guildID
-	 * @returns {Promise<types.FilteredGuild>}
+	 * @returns {Promise<import("../../src/typings").FilteredGuild>}
 	 */
 	requestGetGuild(guildID) {
 		return this.requestFromGuild(guildID, "GET_GUILD", guildID)
@@ -181,7 +179,7 @@ class ServerReplier extends Replier {
 	/**
 	 * @param {string} userID
 	 * @param {boolean} np
-	 * @returns {Promise<{guilds: types.FilteredGuild[], npguilds: types.FilteredGuild[]}>}
+	 * @returns {Promise<{guilds: import("../../src/typings").FilteredGuild[], npguilds: import("../../src/typings").FilteredGuild[]}>}
 	 */
 	requestGetDashGuilds(userID, np) {
 		return this.requestAll("GET_DASH_GUILDS", { userID, np }, "concatProps")
@@ -191,7 +189,7 @@ class ServerReplier extends Replier {
 	 * Request a guild, but only if the user is in that guild.
 	 * @param {string} userID
 	 * @param {string} guildID
-	 * @returns {Promise<types.FilteredGuild>}
+	 * @returns {Promise<import("../../src/typings").FilteredGuild>}
 	 */
 	requestGetGuildForUser(userID, guildID) {
 		return this.requestFromGuild(guildID, "GET_GUILD_FOR_USER", { userID, guildID })
@@ -262,7 +260,7 @@ class ServerReplier extends Replier {
 
 	/**
 	 * Request and combine stats from all shards.
-	 * @returns {Promise<types.CombinedShardStats>}
+	 * @returns {Promise<import("../../src/typings").CombinedShardStats>}
 	 */
 	async requestGetStats() {
 		const stats = await this.requestAll("GET_STATS", undefined, null)

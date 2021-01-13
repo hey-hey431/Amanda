@@ -1,24 +1,20 @@
 // @ts-check
 
-/** @type {import("node-fetch")["default"]} */
-// @ts-ignore
-const fetch = require("node-fetch")
-const fs = require("fs")
-const Discord = require("thunderstorm")
-const Jimp = require("jimp")
-const path = require("path")
-/** @type {import("simple-git")["default"]} */
-// @ts-ignore
-const sG = require("simple-git")
+import fetch from "node-fetch"
+import fs from "fs"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
+import Jimp from "jimp"
+import path from "path"
+import sG from "simple-git"
 const simpleGit = sG(__dirname)
-const ReactionMenu = require("@amanda/reactionmenu")
+import ReactionMenu from "@amanda/reactionmenu"
 
-const emojis = require("../emojis")
+import emojis from "../modules/emojis"
 
-const passthrough = require("../passthrough")
+import passthrough from "../passthrough"
 const { client, constants, config, commands, reloadEvent, reloader, games, queues, periodicHistory, ipc } = passthrough
 
-const utils = require("../modules/utilities")
+import utils from "../modules/utilities"
 reloader.sync("./modules/utilities/index.js", utils)
 
 let sendStatsTimeout = setTimeout(sendStatsTimeoutFunction, 1000 * 60 * 60 - (Date.now() % (1000 * 60 * 60)))
@@ -27,14 +23,12 @@ function sendStatsTimeoutFunction() {
 	sendStats()
 	sendStatsTimeout = setTimeout(sendStatsTimeoutFunction, 1000 * 60 * 60)
 }
-/**
- * @param {Discord.Message} [msg]
- */
-async function sendStats(msg) {
+
+async function sendStats(msg?: import("thunderstorm").Message) {
 	console.log("Sending stats...")
 	const stats = await utils.getOwnStats()
 	const now = Date.now()
-	const myid = client.user.id
+	const myid = client.user!.id
 	const ramUsageKB = Math.floor(stats.ram / 1024)
 	const shard = 0
 	await utils.sql.all(
@@ -50,7 +44,7 @@ async function updateCache() {
 	const backgroundRows = await utils.sql.all("SELECT keyID, value FROM SettingsSelf WHERE setting = 'profilebackground'")
 	const mineRows = await utils.sql.all("SELECT userID, url FROM BackgroundSync WHERE machineID = ?", config.machine_id)
 	const mineMap = new Map(mineRows.map(r => [r.userID, r.url]))
-	const updatedPrepared = []
+	const updatedPrepared: Array<any> = []
 	let updatedQuery = ""
 	await Promise.all(backgroundRows.map(async row => {
 		const mine = mineMap.get(row.keyID)
@@ -78,11 +72,11 @@ async function updateCache() {
 		console.log("No changes to backgrounds since last call")
 	}
 }
-let cacheUpdateTimeout
+let cacheUpdateTimeout: NodeJS.Timeout
 updateCache()
 cacheUpdateTimeout = setTimeout(cacheUpdateTimeoutFunction, 1000 * 60 * 60 * 24 - (Date.now() % (1000 * 60 * 60 * 24)))
 console.log("added timeout cacheUpdateTimeout")
-ipc.replier.addReceivers([
+ipc.replier!.addReceivers([
 	["update_background_cache_BACKGROUND_UPDATE_REQUIRED", {
 		op: "BACKGROUND_UPDATE_REQUIRED",
 		fn: () => {
@@ -102,13 +96,9 @@ reloadEvent.once(path.basename(__filename), () => {
 	console.log("removed timeout cacheUpdateTimeout")
 })
 
-/**
- * @param {Discord.User} user
- * @param {string} otherid
- */
-function getHeartType(user, otherid) {
+function getHeartType(user: import("thunderstorm").User, otherid: string) {
 	// Full hearts for Amanda! Amanda loves everyone.
-	if (user.id == client.user.id) return "full"
+	if (user.id == client.user!.id) return "full"
 	// User doesn't love anyone. Sad.
 	if (!otherid) return "broken"
 	// If we get here, then the user is in a relationship
@@ -129,9 +119,9 @@ commands.assign([
 		examples: ["stats"],
 		async process(msg, suffix, lang) {
 			const embed = new Discord.MessageEmbed().setColor(constants.standard_embed_color)
-			const leadingIdentity = `${client.user.tag} <:online:606664341298872324>\n${config.cluster_id} cluster`
+			const leadingIdentity = `${client.user!.tag} <:online:606664341298872324>\n${config.cluster_id} cluster`
 			const leadingSpace = `${emojis.bl}\n​`
-			function bothStats(stats, allStats, key) {
+			function bothStats(stats: any, allStats: any, key: string) {
 				return `${utils.numberComma(allStats[key])} total, _${utils.numberComma(stats[key])} in ${config.cluster_id} cluster_` // SC: U+2004 THREE-PER-EM SPACE
 			}
 			if (suffix.toLowerCase() == "music") {
@@ -171,7 +161,7 @@ commands.assign([
 					},
 					{
 						name: leadingSpace,
-						value: `${utils.replace(lang.meta.statistics.returns.usersPlaying, { "number": utils.numberComma(games.cache.reduce((acc, cur) => acc + cur.receivedAnswers ? cur.receivedAnswers.size : 0, 0)) })}`,
+						value: `${utils.replace(lang.meta.statistics.returns.usersPlaying, { "number": utils.numberComma(games.cache.reduce((acc, cur) => acc + (cur.receivedAnswers ? cur.receivedAnswers.size : 0), 0)) })}`,
 						inline: true
 					}
 				])
@@ -184,7 +174,7 @@ commands.assign([
 					.addFields([
 						{
 							name: leadingIdentity,
-							value: `**${lang.meta.ping.returns.heartbeat}:**\n${stats.latency.map((i, index) => `Shard ${stats.shards[index]}: ${i}ms`).join("\n")}\n`
+							value: `**${lang.meta.ping.returns.heartbeat}:**\n${stats.latency.map((i: any, index: any) => `Shard ${stats.shards[index]}: ${i}ms`).join("\n")}\n`
 							+ `**❯ ${lang.meta.statistics.returns.latency}:**\n${utils.numberComma(Date.now() - before)}ms\n`
 							+ `**❯ ${lang.meta.statistics.returns.uptime}:**\n${utils.shortTime(stats.uptime, "sec")}\n`
 							+ `**❯ ${lang.meta.statistics.returns.ramUsage}:**\n${bToMB(ram)}\n`,
@@ -221,13 +211,13 @@ commands.assign([
 			} else {
 				const stats = await utils.getOwnStats()
 				const gateway = await passthrough.workers.gateway.getStats()
-				const allStats = await ipc.replier.requestGetAllStats()
+				const allStats = await ipc.replier!.requestGetAllStats()
 				const nmsg = await msg.channel.send(lang.meta.statistics.prompts.slow)
 				embed
 					.addFields([
 						{
 							name: leadingIdentity,
-							value: `**${lang.meta.ping.returns.heartbeat}:**\n${gateway.latency.map((i, index) => `Shard ${gateway.shards[index]}: ${i}ms`).join("\n")}\n`
+							value: `**${lang.meta.ping.returns.heartbeat}:**\n${gateway.latency.map((i: any, index: any) => `Shard ${gateway.shards[index]}: ${i}ms`).join("\n")}\n`
 							+ `**❯ ${lang.meta.statistics.returns.latency}:**\n${utils.numberComma(nmsg.createdTimestamp - msg.createdTimestamp)}ms\n`
 							+ `**❯ ${lang.meta.statistics.returns.uptime}:**\n${utils.shortTime(stats.uptime, "sec")}\n`
 							+ `**❯ ${lang.meta.statistics.returns.ramUsage}:**\n${bToMB(stats.ram)}`,
@@ -244,7 +234,7 @@ commands.assign([
 					])
 				nmsg.edit(await utils.contentify(msg.channel, embed))
 			}
-			function bToMB(number) {
+			function bToMB(number: number) {
 				return `${((number / 1024) / 1024).toFixed(2)}MB`
 			}
 		}
@@ -260,7 +250,7 @@ commands.assign([
 			const message = utils.arrayRandom(array)
 			const nmsg = await msg.channel.send(message)
 			const gateway = await passthrough.workers.gateway.getStats()
-			const embed = new Discord.MessageEmbed().setAuthor(lang.meta.ping.returns.pong).addFields([{ name: lang.meta.ping.returns.heartbeat, value: gateway.latency.map((i, index) => `Shard ${gateway.shards[index]}: ${i}ms`).join("\n") }, { name: lang.meta.ping.returns.latency, value: `${utils.numberComma(nmsg.createdTimestamp - msg.createdTimestamp)}ms`, inline: true }]).setFooter(lang.meta.ping.returns.footer).setColor(constants.standard_embed_color)
+			const embed = new Discord.MessageEmbed().setAuthor(lang.meta.ping.returns.pong).addFields([{ name: lang.meta.ping.returns.heartbeat, value: gateway.latency.map((i: any, index: any) => `Shard ${gateway.shards[index]}: ${i}ms`).join("\n") }, { name: lang.meta.ping.returns.latency, value: `${utils.numberComma(nmsg.createdTimestamp - msg.createdTimestamp)}ms`, inline: true }]).setFooter(lang.meta.ping.returns.footer).setColor(constants.standard_embed_color)
 			const content = await utils.contentify(msg.channel, embed)
 			nmsg.edit(content)
 		}
@@ -284,7 +274,8 @@ commands.assign([
 		category: "admin",
 		examples: ["restartnotify"],
 		async process(msg, suffix, lang) {
-			await utils.sql.all("REPLACE INTO RestartNotify VALUES (?, ?, ?)", [client.user.id, msg.author.id, msg.channel.id])
+			await utils.sql.all("REPLACE INTO RestartNotify VALUES (?, ?, ?)", [client.user!.id, msg.author.id, msg.channel.id])
+			// @ts-ignore
 			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild ? msg.guild.id : undefined }, 0x00000040))) return msg.channel.send(lang.admin.restartnotify.returns.confirmation)
 			msg.react("✅")
 		}
@@ -310,13 +301,10 @@ commands.assign([
 		category: "meta",
 		examples: ["info"],
 		async process(msg, suffix, lang) {
-			/**
-			 * @type {Discord.User}
-			 */
 			// @ts-ignore
-			const owner = await utils.cacheManager.users.get("320067006521147393", true, true)
+			const owner: Discord.User = await utils.cacheManager.users.get("320067006521147393", true, true)
 			const embed = new Discord.MessageEmbed()
-				.setAuthor("Amanda", client.user.displayAvatarURL({ format: "png", size: 32 }))
+				.setAuthor("Amanda", client.user!.displayAvatarURL({ format: "png", size: 32 })!)
 				.setDescription(lang.meta.info.returns.thanks)
 				.addFields([
 					{
@@ -366,20 +354,26 @@ commands.assign([
 			const res = await new Promise((r) => {
 				// @ts-ignore
 				simpleGit.status((err, status) => {
+					// @ts-ignore
 					simpleGit.log({ "--no-decorate": null }, (err2, log) => {
 						Promise.all(Array(limit).fill(undefined).map((_, i) => new Promise(resolve => {
+							// @ts-ignore
 							simpleGit.diffSummary([log.all[i + 1].hash, log.all[i].hash], (err3, diff) => {
 								resolve(diff)
 							})
 						}))).then(diffs => {
 							const result = { branch: status.current, latestCommitHash: log.latest.hash.slice(0, 7), logString:
-							log.all.slice(0, limit).map((line, index) => {
+							log.all.slice(0, limit).map((line: any, index: any) => {
 								const date = new Date(line.date)
 								const dateString = `${date.toDateString()} @ ${date.toTimeString().split(":").slice(0, 2).join(":")}`
 								const diff =
+								// @ts-ignore
 									`${diffs[index].files.length} files changed, ` +
+									// @ts-ignore
 									`${diffs[index].insertions} insertions, ` +
+									// @ts-ignore
 									`${diffs[index].deletions} deletions.`
+									// @ts-ignore
 								return `\`» ${line.hash.slice(0, 7)}: ${dateString} — ${authorNameMap[line.author_name] || "Unknown"}\`\n` +
 												`\`» ${diff}\`\n${line.message}`
 							}).join("\n\n") }
@@ -390,6 +384,7 @@ commands.assign([
 			})
 			const embed = new Discord.MessageEmbed()
 				.setTitle("Git info")
+				// @ts-ignore
 				.addFields([{ name: "Status", value:`On branch ${res.branch}, latest commit ${res.latestCommitHash}` }, { name: `Commits (latest ${limit} entries)`, value: res.logString }])
 				.setColor(constants.standard_embed_color)
 			return msg.channel.send(await utils.contentify(msg.channel, embed))
@@ -401,7 +396,7 @@ commands.assign([
 		aliases: ["privacy"],
 		category: "meta",
 		examples: ["privacy"],
-		process(msg, suffix, lang) {
+		process(msg) {
 			return msg.channel.send(`<${constants.baseURL}/to/privacy>`)
 		}
 	},
@@ -440,7 +435,7 @@ commands.assign([
 				if (user.flags && (user.flags & 1 << 16) == 1 << 16) status = "<:VerifiedBot:719645152003489912>"
 				else status = "<:bot:412413027565174787>"
 			}
-			embed.setThumbnail(user.displayAvatarURL({ format: "png", size: 256, dynamic: true }))
+			embed.setThumbnail(user.displayAvatarURL({ format: "png", size: 256, dynamic: true })!)
 			embed.addFields({ name: "Avatar URL:", value: `[Click Here](${user.displayAvatarURL({ format: "png", size: 2048, dynamic: true })})` })
 			embed.setTitle(`${user.tag} ${status}\n${utils.userFlagEmojis(user).join(" ")}`)
 			// if (activity) embed.setDescription(activity)
@@ -455,6 +450,7 @@ commands.assign([
 		examples: ["avatar PapiOphidian"],
 		async process(msg, suffix, lang) {
 			let canEmbedLinks = true
+			// @ts-ignore
 			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild ? msg.guild.id : undefined }, 0x00004000))) canEmbedLinks = false
 			/** @type {Discord.User} */
 			let user = null
@@ -466,7 +462,7 @@ commands.assign([
 			const url = user.displayAvatarURL({ format: "png", size: 2048, dynamic: true })
 			if (canEmbedLinks) {
 				const embed = new Discord.MessageEmbed()
-					.setImage(url)
+					.setImage(url!)
 					.setColor(constants.standard_embed_color)
 				msg.channel.send(embed)
 			} else msg.channel.send(url)
@@ -496,7 +492,7 @@ commands.assign([
 		aliases: ["todo", "trello", "tasks"],
 		category: "meta",
 		examples: ["todo"],
-		process(msg, suffix) {
+		process(msg) {
 			msg.channel.send(`Todo board: ${config.website_protocol}://${config.website_domain}/to/todo`)
 		}
 	},
@@ -510,10 +506,11 @@ commands.assign([
 			if (!suffix) return msg.channel.send(utils.replace(lang.meta.wumbo.prompts.invalidEmoji, { "username": msg.author.username }))
 			const emoji = Discord.Util.parseEmoji(suffix)
 			if (emoji == null) return msg.channel.send(utils.replace(lang.meta.wumbo.prompts.invalidEmoji, { "username": msg.author.username }))
-			const url = utils.emojiURL(emoji.id, emoji.animated)
+			const url = utils.emojiURL(emoji.id!, emoji.animated)
 			const embed = new Discord.MessageEmbed()
 				.setImage(url)
 				.setColor(constants.standard_embed_color)
+				// @ts-ignore
 			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild ? msg.guild.id : undefined }, 0x00004000))) return msg.channel.send(url)
 			return msg.channel.send(embed)
 		}
@@ -525,13 +522,16 @@ commands.assign([
 		category: "meta",
 		examples: ["profile PapiOphidian"],
 		async process(msg, suffix, lang) {
-			let user, member
+			let user: import("thunderstorm").User, member
+			// @ts-ignore
 			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild ? msg.guild.id : undefined }, 0x00008000))) return msg.channel.send(lang.meta.profile.prompts.permissionDenied)
 			if (suffix.indexOf("--light") != -1) suffix = suffix.replace("--light", "")
 			if (msg.channel.type == "text") {
 				member = await utils.cacheManager.members.find(msg, suffix, true)
 				if (member) user = member.user
+				// @ts-ignore
 			} else user = await utils.cacheManager.users.find(msg, suffix, true)
+			// @ts-ignore
 			if (!user) return msg.channel.send(utils.replace(lang.meta.profile.prompts.invalidUser, { "username": msg.author.username }))
 			await msg.channel.sendTyping()
 
@@ -544,13 +544,14 @@ commands.assign([
 				utils.sql.get("SELECT * FROM Premium WHERE userID =?", user.id),
 				utils.coinsManager.getRow(user.id),
 				utils.sql.get("SELECT * FROM Couples WHERE user1 =? OR user2 =?", [user.id, user.id]),
-				Jimp.read(user.displayAvatarURL({ format: "png", size: 128 })),
+				Jimp.read(user.displayAvatarURL({ format: "png", size: 128 })!),
 				utils.jimpStores.images.getAll(["canvas", "canvas-vicinity", "canvas-sakura", "profile", "profile-light", "old-profile", "old-profile-light", "heart-full", "heart-broken", "badge-developer", "badge-donator", "circle-mask", "profile-background-mask", "badge-hunter", "badge-booster", "badge-giver1", "badge-giver2", "badge-giver3", "badge-giver4", "discoin"]),
 				utils.jimpStores.fonts.getAll(["whitney-25", "whitney-20-2", "whitney-25-black", "whitney-20-2-black"])
 			])
 
 			const otherid = info ? (info.user1 === user.id ? info.user2 : info.user1) : null
-			let other
+			let other: import("thunderstorm").User | undefined
+			// @ts-ignore
 			if (otherid) other = await utils.cacheManager.users.get(otherid, true, true)
 
 			avatar.resize(111, 111)
@@ -558,12 +559,10 @@ commands.assign([
 			const heartType = getHeartType(user, otherid)
 			const heart = images.get(`heart-${heartType}`)
 
-			/** @type {string} */
-			let badge
+			let badge: string
 			if (isOwner) badge = "badge-developer"
 			else if (isPremium) badge = "badge-donator"
-			/** @type {import("@amanda/discordtypings").MemberData} */
-			let mem
+			let mem: import("@amanda/discordtypings").MemberData
 			const memberFetchTimeout = 2000
 			try {
 				const TProm = new Promise((_, reject) => {
@@ -571,42 +570,41 @@ commands.assign([
 						if (!mem || mem && !mem.roles) return reject(new Error("IPC fetch timeout"))
 					}, memberFetchTimeout)
 				})
+				// @ts-ignore
 				mem = await Promise.race([utils.cacheManager.members.get(user.id, "475599038536744960", true, false), TProm])
 			} catch(e) {
 				// @ts-ignore
 				mem = { roles: [] }
 			}
-			let boosting, hunter
+			let boosting: boolean, hunter: boolean
 			if (mem) {
 				boosting = mem.roles.includes("613685290938138625")
 				hunter = mem.roles.includes("497586624390234112")
 			}
-			/** @type {import("jimp")} */
-			let badgeImage
-			if (badge) badgeImage = images.get(badge)
-			let giverImage
-			if (money.givencoins >= giverTier4) giverImage = images.get("badge-giver4").clone()
-			else if (money.givencoins >= giverTier3) giverImage = images.get("badge-giver3").clone()
-			else if (money.givencoins >= giverTier2) giverImage = images.get("badge-giver2").clone()
-			else if (money.givencoins >= giverTier1) giverImage = images.get("badge-giver1").clone()
+			let badgeImage: import("jimp")
+			if (badge!) badgeImage = images.get(badge!)!
+			let giverImage: import("jimp")
+			if (money.givencoins >= giverTier4) giverImage = images.get("badge-giver4")!.clone()
+			else if (money.givencoins >= giverTier3) giverImage = images.get("badge-giver3")!.clone()
+			else if (money.givencoins >= giverTier2) giverImage = images.get("badge-giver2")!.clone()
+			else if (money.givencoins >= giverTier1) giverImage = images.get("badge-giver1")!.clone()
 
 
 			async function getDefaultBG() {
 				const attempt = await utils.sql.get("SELECT * FROM SettingsSelf WHERE keyID =? AND setting =?", [user.id, "defaultprofilebackground"])
-				if (attempt && attempt.value && attempt.value != "default") return images.get(`canvas-${attempt.value}`).clone()
-				else return images.get("canvas").clone()
+				if (attempt && attempt.value && attempt.value != "default") return images.get(`canvas-${attempt.value}`)!.clone()
+				else return images.get("canvas")!.clone()
 			}
 
 			async function getOverlay() {
 				const attempt = await utils.sql.get("SELECT * FROM SettingsSelf WHERE keyID =? AND setting =?", [user.id, "profilestyle"])
-				if (attempt && attempt.value && attempt.value != "new") return { style: "old", image: images.get(`old-${themeoverlay}`).clone() }
-				else return { style: "new", image: images.get(themeoverlay).clone() }
+				if (attempt && attempt.value && attempt.value != "new") return { style: "old", image: images.get(`old-${themeoverlay}`)!.clone() }
+				else return { style: "new", image: images.get(themeoverlay)!.clone() }
 			}
 
 			const job = await getOverlay()
 
-			/** @type {import("jimp")} */
-			let canvas
+			let canvas: import("jimp")
 
 			if (isOwner || isPremium) {
 				try {
@@ -626,45 +624,45 @@ commands.assign([
 				if (!badgeImage && giverImage) canvas.composite(giverImage, 219, 120)
 				else if (badgeImage && giverImage) canvas.composite(giverImage, 289, 120)
 				if (boosting) {
-					if (!badge && !giverImage) canvas.composite(images.get("badge-booster").resize(50, 50), 219, 120)
-					else if (!badge || !giverImage) canvas.composite(images.get("badge-booster").resize(50, 50), 289, 120)
-					else canvas.composite(images.get("badge-booster").resize(50, 50), 349, 120)
+					if (!badge && !giverImage) canvas.composite(images.get("badge-booster")!.resize(50, 50), 219, 120)
+					else if (!badge || !giverImage) canvas.composite(images.get("badge-booster")!.resize(50, 50), 289, 120)
+					else canvas.composite(images.get("badge-booster")!.resize(50, 50), 349, 120)
 				}
 
-				canvas.print(themeoverlay == "profile" ? font : font_black, 219, 58, user.username.length > 42 ? `${user.username.slice(0, 40)}...` : user.username)
-				canvas.print(themeoverlay == "profile" ? font2 : font2_black, 219, 90, `#${user.discriminator}`)
-				canvas.composite(images.get("discoin"), 62, 215)
-				canvas.print(themeoverlay == "profile" ? font2 : font2_black, 106, 222, utils.numberComma(money.coins))
-				canvas.composite(heart, 62, 259)
-				canvas.print(themeoverlay == "profile" ? font2 : font2_black, 106, 265, user.id == client.user.id ? "You <3" : other ? other.tag.length > 42 ? `${other.tag.slice(0, 40)}...` : other.tag : "Nobody, yet")
+				canvas.print(themeoverlay == "profile" ? font! : font_black!, 219, 58, user.username.length > 42 ? `${user.username.slice(0, 40)}...` : user.username)
+				canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 219, 90, `#${user.discriminator}`)
+				canvas.composite(images.get("discoin")!, 62, 215)
+				canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 106, 222, utils.numberComma(money.coins))
+				canvas.composite(heart!, 62, 259)
+				canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 106, 265, user.id == client.user!.id ? "You <3" : other ? other.tag.length > 42 ? `${other.tag.slice(0, 40)}...` : other.tag : "Nobody, yet")
 
 				let huntercoords = [219, 125]
 				if (badge && boosting && giverImage) huntercoords = [419, 120]
 				else if (badge && (boosting || giverImage)) huntercoords = [359, 120]
 				else if (badge || boosting || giverImage) huntercoords = [289, 120]
-				if (hunter) canvas.composite(images.get("badge-hunter").resize(50, 50), huntercoords[0], huntercoords[1])
+				if (hunter) canvas.composite(images.get("badge-hunter")!.resize(50, 50), huntercoords[0], huntercoords[1])
 			}
 
 			function buildNewProfile() {
-				canvas.mask(images.get("profile-background-mask"), 0, 0)
+				canvas.mask(images.get("profile-background-mask")!, 0, 0)
 				canvas.composite(job.image, 0, 0)
-				avatar.mask(images.get("circle-mask"), 0, 0)
+				avatar.mask(images.get("circle-mask")!, 0, 0)
 				canvas.composite(avatar, 32, 85)
 				if (badgeImage) canvas.composite(badgeImage, 166, 113)
 				if (boosting) {
-					if (!badge) canvas.composite(images.get("badge-booster").resize(34, 34), 166, 115)
-					else canvas.composite(images.get("badge-booster").resize(34, 34), 216, 115)
+					if (!badge) canvas.composite(images.get("badge-booster")!.resize(34, 34), 166, 115)
+					else canvas.composite(images.get("badge-booster")!.resize(34, 34), 216, 115)
 				}
 
-				canvas.print(themeoverlay == "profile" ? font : font_black, 508, 72, user.username.length > 22 ? `${user.username.slice(0, 19)}...` : user.username)
-				canvas.print(themeoverlay == "profile" ? font2 : font2_black, 508, 104, `#${user.discriminator}`)
-				canvas.composite(images.get("discoin"), 508, 156)
-				canvas.print(themeoverlay == "profile" ? font2 : font2_black, 550, 163, utils.numberComma(money.coins))
-				canvas.composite(heart, 508, 207)
-				canvas.print(themeoverlay == "profile" ? font2 : font2_black, 550, 213, user.id == client.user.id ? "You <3" : other ? other.tag.length > 22 ? `${other.tag.slice(0, 19)}...` : other.tag : "Nobody, yet")
+				canvas.print(themeoverlay == "profile" ? font! : font_black!, 508, 72, user.username.length > 22 ? `${user.username.slice(0, 19)}...` : user.username)
+				canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 508, 104, `#${user.discriminator}`)
+				canvas.composite(images.get("discoin")!, 508, 156)
+				canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 550, 163, utils.numberComma(money.coins))
+				canvas.composite(heart!, 508, 207)
+				canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 550, 213, user.id == client.user!.id ? "You <3" : other ? other.tag.length > 22 ? `${other.tag.slice(0, 19)}...` : other.tag : "Nobody, yet")
 				if (hunter) {
-					canvas.composite(images.get("badge-hunter").resize(34, 34), 508, 250)
-					canvas.print(themeoverlay == "profile" ? font2 : font2_black, 550, 260, "Amanda Bug Catcher")
+					canvas.composite(images.get("badge-hunter")!.resize(34, 34), 508, 250)
+					canvas.print(themeoverlay == "profile" ? font2! : font2_black!, 550, 260, "Amanda Bug Catcher")
 				}
 				if (giverImage) canvas.composite(giverImage, 595, 370)
 			}
@@ -726,8 +724,9 @@ commands.assign([
 			let scope = args[0].toLowerCase()
 			scope = Discord.Util.escapeMarkdown(scope)
 			if (!["self", "server"].includes(scope)) return msg.channel.send(lang.configuration.settings.prompts.invalidSyntaxScope)
+			// @ts-ignore
 			const tableName = tableNames[scope]
-			const keyID = scope == "self" ? msg.author.id : msg.guild.id
+			const keyID = scope == "self" ? msg.author.id : msg.guild!.id
 
 			let settingName = args[1] ? args[1].toLowerCase() : ""
 			settingName = Discord.Util.escapeMarkdown(settingName)
@@ -738,11 +737,13 @@ commands.assign([
 			}
 
 			if (scope == "server") {
-				const bool = await utils.cacheManager.members.hasPermission(msg.author.id, msg.guild.id, "MANAGE_GUILD")
+				const bool = await utils.cacheManager.members.hasPermission(msg.author.id, msg.guild!.id, "MANAGE_GUILD")
 				if (!bool) return msg.channel.send(lang.configuration.settings.prompts.manageServer)
 			}
 
+			// @ts-ignore
 			const setting = settings[settingName]
+			// @ts-ignore
 			if (!setting) return msg.channel.send(utils.replace(lang.configuration.settings.prompts.invalidSyntaxName, { "usage": lang.configuration.settings.help.usage, "settings": Object.keys(settings).filter(k => settings[k].scope.includes(scope)).map(k => `\`${k}\``).join(", ") }))
 			if (!setting.scope.includes(scope)) return msg.channel.send(utils.replace(lang.configuration.settings.prompts.invalidSettingScope, { "setting": settingName, "scope": scope }))
 
@@ -756,7 +757,7 @@ commands.assign([
 					else return msg.channel.send(utils.replace(lang.configuration.settings.prompts.currentValueInherited, { "setting": settingName, "value": value }))
 				} else if (scope == "self") {
 					let serverRow
-					if (msg.channel.type == "text") serverRow = await utils.sql.get("SELECT value FROM SettingsGuild WHERE keyID = ? AND setting = ?", [msg.guild.id, settingName])
+					if (msg.channel.type == "text") serverRow = await utils.sql.get("SELECT value FROM SettingsGuild WHERE keyID = ? AND setting = ?", [msg.guild!.id, settingName])
 					let values = [
 						setting.default,
 						serverRow ? serverRow.value : null,
@@ -777,7 +778,7 @@ commands.assign([
 				if (settingName == "profilebackground") {
 					try {
 						await fs.promises.unlink(`./images/backgrounds/cache/${msg.author.id}.png`)
-						ipc.replier.sendBackgroundUpdateRequired()
+						ipc.replier!.sendBackgroundUpdateRequired()
 					} catch (e) {
 						return msg.channel.send(lang.configuration.settings.prompts.noBackground)
 					}
@@ -827,7 +828,7 @@ commands.assign([
 				await fs.promises.writeFile(`./images/backgrounds/cache/${msg.author.id}.png`, buffer)
 				await utils.sql.all(`REPLACE INTO ${tableName} (keyID, setting, value) VALUES (?, ?, ?)`, [keyID, settingName, value])
 				await utils.sql.all("REPLACE INTO BackgroundSync (machineID, userID, url) VALUES (?, ?, ?)", [config.machine_id, keyID, value])
-				ipc.replier.sendBackgroundUpdateRequired()
+				ipc.replier!.sendBackgroundUpdateRequired()
 				return msg.channel.send(lang.configuration.settings.returns.updated)
 			}
 
@@ -878,7 +879,7 @@ commands.assign([
 		category: "configuration",
 		examples: ["language es"],
 		process(msg, suffix, lang) {
-			commands.cache.get("settings").process(msg, `self language ${suffix}`, lang)
+			commands.cache.get("settings")!.process(msg, `self language ${suffix}`, lang)
 		}
 	},
 
@@ -889,7 +890,7 @@ commands.assign([
 		category: "configuration",
 		examples: ["serverlanguage es"],
 		process(msg, suffix, lang) {
-			commands.cache.get("settings").process(msg, `server language ${suffix}`, lang)
+			commands.cache.get("settings")!.process(msg, `server language ${suffix}`, lang)
 		}
 	},
 
@@ -900,7 +901,7 @@ commands.assign([
 		category: "configuration",
 		examples: ["background https://cdn.discordapp.com/attachments/586533548035538954/586533639509114880/vicinity.jpg"],
 		process(msg, suffix, lang) {
-			commands.cache.get("settings").process(msg, `self profilebackground ${suffix}`, lang)
+			commands.cache.get("settings")!.process(msg, `self profilebackground ${suffix}`, lang)
 		}
 	},
 
@@ -911,7 +912,7 @@ commands.assign([
 		category: "meta",
 		examples: ["help audio"],
 		async process(msg, suffix, lang) {
-			let embed
+			let embed: import("thunderstorm").MessageEmbed
 			if (suffix) {
 				suffix = suffix.toLowerCase()
 				if (suffix == "music" || suffix == "m") {
@@ -921,7 +922,7 @@ commands.assign([
 						.setColor(constants.standard_embed_color)
 					const blacklist = ["soundcloud", "music", "frisky", "debug", "token", "listenmoe", "newgrounds"]
 					const audio = commands.cache.filter(c => c.category === "audio" && !blacklist.includes(c.aliases[0]))
-					audio.map(cmd => {
+					audio.forEach(cmd => {
 						const info = getDocs(cmd)
 						if (cmd.aliases[0] === "playlist") {
 							info.usage = `See \`${passthrough.statusPrefix}help playlist\``
@@ -1007,19 +1008,19 @@ commands.assign([
 						const info = getDocs(command)
 						embed = new Discord.MessageEmbed()
 							.setAuthor(`Help for ${command.aliases[0]}`)
-							.setDescription(`Arguments: ${info.usage}\nDescription: ${info.description}\nAliases: ${command.aliases.map(a => `\`${a}\``).join(", ")}\nCategory: ${command.category}\nExamples:\n${command.examples ? command.examples.map(i => `${(i.startsWith("amanda, ") || i.startsWith(`${client.user.username.toLowerCase()}, `)) ? "" : passthrough.statusPrefix}${i}`).join("\n") : "N.A."}`)
+							.setDescription(`Arguments: ${info.usage}\nDescription: ${info.description}\nAliases: ${command.aliases.map(a => `\`${a}\``).join(", ")}\nCategory: ${command.category}\nExamples:\n${command.examples ? command.examples.map(i => `${(i.startsWith("amanda, ") || i.startsWith(`${client.user!.username.toLowerCase()}, `)) ? "" : passthrough.statusPrefix}${i}`).join("\n") : "N.A."}`)
 							.setFooter("<> = Required, [] = Optional, | = Or. Do not include <>, [], or | in your input")
 							.setColor(constants.standard_embed_color)
 						msg.channel.send(await utils.contentify(msg.channel, embed))
 					} else if (suffix != "hidden" && commands.categories.get(suffix)) {
-						const cat = commands.categories.get(suffix)
+						const cat = commands.categories.get(suffix)!
 						const maxLength = cat.reduce((acc, cur) => Math.max(acc, cur.length), 0)
 						embed = new Discord.MessageEmbed()
 							.setAuthor(`Command Category: ${suffix}`)
 							.setDescription(
 								cat.sort((a, b) => {
-									const cmda = commands.cache.get(a)
-									const cmdb = commands.cache.get(b)
+									const cmda = commands.cache.get(a)!
+									const cmdb = commands.cache.get(b)!
 									if (cmda.order !== undefined && cmdb.order !== undefined) { // both are numbers, sort based on that, lowest first
 										return cmda.order - cmdb.order
 									} else if (cmda.order !== undefined) { // a is defined, sort a first
@@ -1030,21 +1031,24 @@ commands.assign([
 										return 0
 									}
 								}).map(c => {
-									const cmd = commands.cache.get(c)
+									const cmd = commands.cache.get(c)!
 									let desc
+									// @ts-ignore
 									if (lang[suffix] && lang[suffix][c] && !["music", "playlist"].includes(c)) desc = lang[suffix][c].help.description
 									else desc = cmd.description
 									return `\`${cmd.aliases[0]}${" ​".repeat(maxLength - cmd.aliases[0].length)}\` ${desc}`
 								}).join("\n") +
 							`\n\n${lang.meta.help.returns.footer}`)
 							.setColor(constants.standard_embed_color)
+							// @ts-ignore
 						if ((await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild ? msg.guild.id : undefined }, 0x00000040))) embed.setFooter(lang.meta.help.returns.mobile)
 						msg.channel.send(await utils.contentify(msg.channel, embed)).then(message => {
 							const mobileEmbed = new Discord.MessageEmbed()
 								.setAuthor(`Command Category: ${suffix}`)
 								.setDescription(cat.map(c => {
-									const cmd = commands.cache.get(c)
+									const cmd = commands.cache.get(c)!
 									let desc
+									// @ts-ignore
 									if (lang[suffix] && lang[suffix][c] && !["music", "playlist"].includes(c)) desc = lang[suffix][c].help.description
 									else desc = cmd.description
 									return `**${cmd.aliases[0]}**\n${desc}`
@@ -1066,9 +1070,11 @@ commands.assign([
 					.setColor(constants.standard_embed_color)
 				msg.channel.send(await utils.contentify(msg.channel, embed))
 			}
-			function getDocs(command) {
+			function getDocs(command: any) {
 				let info = { usage: command.usage, description: command.description }
+				// @ts-ignore
 				if (lang[command.category]) {
+					// @ts-ignore
 					const langcommand = lang[command.category][command.aliases[0]]
 					if (langcommand) info = { usage: langcommand.help.usage, description: langcommand.help.description }
 				}

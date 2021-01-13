@@ -1,4 +1,4 @@
-const config = require("./config.js")
+import config from "../config"
 const baseURL = `${config.website_protocol}://${config.website_domain}`
 
 export = {

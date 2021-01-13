@@ -1,6 +1,6 @@
 // @ts-check
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import { EventEmitter } from "events"
 
 import passthrough from "../../passthrough"
@@ -15,7 +15,7 @@ reloader.sync("./modules/utilities/index.js", utils)
 const auditDestroyTimeout = 1000 * 60 * 5
 
 class QueueManager {
-	public cache: Discord.Collection<string, import("../../commands/music/queue").Queue>
+	public cache: import("thunderstorm").Collection<string, import("../../commands/music/queue").Queue>
 	public songsPlayed: number
 	public events: EventEmitter
 	public audits: Map<string, Array<{ action: string, platform: string, user: string }>>
@@ -36,7 +36,7 @@ class QueueManager {
 		}
 	}
 
-	public async getOrCreate(voiceChannel: Discord.VoiceChannel, textChannel: Discord.PartialChannel, host: string | null = null): Promise<import("../../commands/music/queue").Queue> {
+	public async getOrCreate(voiceChannel: import("thunderstorm").VoiceChannel, textChannel: import("thunderstorm").PartialChannel, host: string | null = null): Promise<import("../../commands/music/queue").Queue> {
 		const guildID = voiceChannel.guild.id
 		if (this.cache.has(guildID)) return this.cache.get(guildID)!
 		else {
@@ -45,9 +45,9 @@ class QueueManager {
 		}
 	}
 
-	public async create(voiceChannel: Discord.VoiceChannel, textChannel: Discord.PartialChannel, host: string | null = null) {
+	public async create(voiceChannel: import("thunderstorm").VoiceChannel, textChannel: import("thunderstorm").PartialChannel, host: string | null = null) {
 		const guildID = voiceChannel.guild.id
-		const guild = await utils.cacheManager.guilds.get(guildID) as Discord.Guild
+		const guild = await utils.cacheManager.guilds.get(guildID) as import("thunderstorm").Guild
 		if (this.audits.get(guildID)) {
 			const existing = this.enqueuedAuditDestructions.get(guildID)
 			if (existing) {

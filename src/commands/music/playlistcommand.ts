@@ -1,6 +1,6 @@
 /* eslint-disable require-await */
 /* eslint-disable no-inner-declarations */
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import ReactionMenu from "@amanda/reactionmenu"
 
 import passthrough from "../../passthrough"
@@ -26,7 +26,7 @@ commands.assign([
 		aliases: ["playlist", "playlists", "pl"],
 		category: "audio",
 		description: "Create, play, and edit playlists.",
-		async process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(lang.audio.music.prompts.guildOnly)
 			const args = suffix.split(" ")
 			const playlistName = args[0]

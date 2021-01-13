@@ -1,9 +1,9 @@
-const Discord = require("thunderstorm")
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
-const passthrough = require("../passthrough")
+import passthrough from "../passthrough"
 const { commands, client, constants, reloader } = passthrough
 
-const utils = require("../modules/utilities")
+import utils from "../modules/utilities"
 reloader.sync("./modules/utilities/index.js", utils)
 
 commands.assign([
@@ -13,8 +13,8 @@ commands.assign([
 		aliases: ["sit"],
 		category: "hidden",
 		examples: ["amanda, sit"],
-		async process(msg, suffix, lang) {
-			if (!msg.content.startsWith(`${client.user.username.toLowerCase()}, `)) return
+		async process(msg) {
+			if (!msg.content.startsWith(`${client.user!.username.toLowerCase()}, `)) return
 			const embed = new Discord.MessageEmbed()
 				.setColor(constants.standard_embed_color)
 				.setImage("https://cdn.discordapp.com/attachments/608456955660468224/777735506703810560/chibiv3.png")

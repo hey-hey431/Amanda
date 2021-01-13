@@ -1,28 +1,18 @@
 // @ts-check
 
-/** @type {import("node-fetch").default} */
-// @ts-ignore
-const fetch = require("node-fetch")
-const Discord = require("thunderstorm")
+import fetch from "node-fetch"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
-const passthrough = require("../passthrough")
+import passthrough from "../passthrough"
 const { constants, config, commands, reloader } = passthrough
 
 const key = config.chewey_api_key
 const poweredbychewey = `Powered by ${constants.chewey_api}`.replace("https://", "")
 
-const utils = require("../modules/utilities")
+import utils from "../modules/utilities"
 reloader.sync("./modules/utilities/index.js", utils)
 
-/**
- * @param {string} host
- * @param {string} path
- * @param {Discord.Message} msg
- * @param {string} emoji
- * @param {string} footer
- * @returns {Promise<Discord.Message>}
- */
-async function sendImage(host, path, msg, emoji, footer) {
+async function sendImage(host: string, path: string, msg: import("thunderstorm").Message, emoji: string, footer: string) {
 	let url
 	if (host == "chewey") url = `${constants.chewey_api}/${path}?auth=${key}`
 	else if (host == "nekos") url = `https://nekos.life/api/v2/img/${path}`
@@ -95,11 +85,6 @@ commands.assign([
 		aliases: ["catgirl", "neko"],
 		category: "images",
 		examples: ["neko"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		process(msg, suffix, lang) {
 			return sendImage("nekos", "neko", msg, "<a:NekoSway:461420549990776832>", "Powered by nekos.life").catch(async () => {
 				const embed = new Discord.MessageEmbed()

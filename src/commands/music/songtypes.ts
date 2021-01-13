@@ -1,5 +1,5 @@
 /* eslint-disable require-await */
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import fetch from "node-fetch"
 
 import passthrough from "../../passthrough"
@@ -97,7 +97,7 @@ export class Song {
 	/**
 	 * Sendable data showing the related songs
 	 */
-	public showRelated(): Promise<string | Discord.MessageEmbed> {
+	public showRelated(): Promise<string | import("thunderstorm").MessageEmbed> {
 		return Promise.resolve("This isn't a real song.")
 	}
 	public showLink() {
@@ -106,7 +106,7 @@ export class Song {
 	/**
 	 * Get sendable data with information about this song
 	 */
-	public showInfo(): Promise<string | Discord.MessageEmbed> {
+	public showInfo(): Promise<string | import("thunderstorm").MessageEmbed> {
 		return Promise.resolve("This isn't a real song.")
 	}
 

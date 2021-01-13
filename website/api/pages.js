@@ -1,7 +1,5 @@
 // @ts-check
 
-const types = require("../../typings")
-
 const passthrough = require("../passthrough")
 const { snow, config, ipc, cache } = passthrough
 
@@ -216,7 +214,7 @@ module.exports = [
 			.go()
 			.then(state => {
 				if (config.music_dash_enabled) {
-				/** @type {types.FilteredGuild} */
+				/** @type {import("../../src/typings").FilteredGuild} */
 					const guild = state.guild
 					return render(200, "pug/server.pug", { guild, timestamp: Date.now() })
 				} else {

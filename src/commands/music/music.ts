@@ -4,7 +4,7 @@
 /* eslint-disable no-irregular-whitespace */
 
 import crypto from "crypto"
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import ReactionMenu from "@amanda/reactionmenu"
 // @ts-ignore
 import mixinDeep from "mixin-deep"
@@ -25,7 +25,7 @@ import common from "./common.js"
 reloader.sync("./commands/music/common.js", common)
 
 
-const subcommandsMap: Map<string, { voiceChannel?: "ask" | "required" | "provide"; queue?: "required"; code: (msg: Discord.Message, args: Array<string>, _: ({ voiceChannel: Discord.VoiceChannel; queue: import("./queue").Queue; lang: import("@amanda/lang").Lang })) => any }> = new Map([
+const subcommandsMap: Map<string, { voiceChannel?: "ask" | "required" | "provide"; queue?: "required"; code: (msg: import("thunderstorm").Message, args: Array<string>, _: ({ voiceChannel: import("thunderstorm").VoiceChannel; queue: import("./queue").Queue; lang: import("@amanda/lang").Lang })) => any }> = new Map([
 	["play", {
 		voiceChannel: "ask",
 		code: async (msg, args, { voiceChannel, lang }) => {
@@ -119,7 +119,7 @@ const subcommandsMap: Map<string, { voiceChannel?: "ask" | "required" | "provide
 					// Send the embed
 					const nmsg = await msg.channel.send(embed)
 					// Make the base reaction menu action
-					const action = { ignore: "total", remove: "all", actionType: "js", actionData: (message: Discord.Message, emoji: { name: string, id: string }) => {
+					const action = { ignore: "total", remove: "all", actionType: "js", actionData: (message: import("thunderstorm").Message, emoji: { name: string, id: string }) => {
 						// User made a choice
 						/** Zero-indexed emoji choice */
 						const choice = Number(emoji.name[3]) - 1
@@ -478,7 +478,7 @@ commands.assign([
 		aliases: ["token", "musictoken", "webtoken", "musictokens", "webtokens"],
 		category: "audio",
 		examples: ["token new"],
-		async process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			if (suffix == "delete") {
 				await deleteAll()
 				msg.author.send(lang.audio.token.returns.deleted)
@@ -520,7 +520,7 @@ commands.assign([
 		aliases: ["debug"],
 		category: "audio",
 		examples: ["debug general"],
-		async process(msg: Discord.Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(lang.audio.debug.prompts.guildOnly)
 			const channel = await utils.cacheManager.channels.find(msg, suffix, true)
 			if (!channel) return msg.channel.send(lang.audio.debug.prompts.invalidChannel)
@@ -568,7 +568,7 @@ commands.assign([
 		category: "audio",
 		examples: ["frisky chill"],
 		order: 3,
-		async process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(lang.audio.music.prompts.guildOnly)
 			if (suffix === "classic") suffix = "classics" // alias
 			if (suffix === "originals") suffix = "original" // alias
@@ -676,7 +676,7 @@ commands.assign([
 		description: "Play music from listen.moe",
 		aliases: ["listenmoe", "lm"],
 		category: "audio",
-		async process(msg: Discord.Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(lang.audio.music.prompts.guildOnly)
 			if (["jp", "kp", "jpop", "kpop"].includes(suffix.toLowerCase())) { // valid station?
 				const voiceChannel = await common.detectVoiceChannel(msg, true, lang)
@@ -703,7 +703,7 @@ commands.assign([
 		aliases: ["music", "m"],
 		category: "audio",
 		order: 1,
-		async process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			// No DMs
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(lang.audio.music.prompts.guildOnly)
 			// Args
@@ -767,7 +767,7 @@ commands.assign([
 		category: "audio",
 		examples: ["soundcloud Kanshou No Matenrou"],
 		order: 2,
-		async process(msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) {
+		async process(msg, suffix, lang) {
 			// @ts-ignore
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(lang.audio.music.prompts.guildOnly)
 			const voiceChannel = await common.detectVoiceChannel(msg, true, lang)

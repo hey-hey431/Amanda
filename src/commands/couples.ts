@@ -1,4 +1,4 @@
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
 import passthrough from "../passthrough"
 const { constants, client, commands, reloader } = passthrough
@@ -24,8 +24,8 @@ commands.assign([
 			if (!user) return msg.channel.send(`${msg.author.username}, that is not a valid user.`)
 			const info = await utils.sql.get("SELECT * FROM Couples WHERE user1 =? OR user2 =?", [user.id, user.id])
 			if (!info) return msg.channel.send("No couple info.")
-			let user1: Discord.User
-			let user2: Discord.User
+			let user1: import("thunderstorm").User
+			let user2: import("thunderstorm").User
 			if (info.user1 === msg.author.id) user1 = msg.author
 			else if (info.user2 === msg.author.id) user2 = msg.author
 			// @ts-ignore
@@ -223,8 +223,8 @@ commands.assign([
 				if (user.id === msg.author.id) return msg.channel.send(`${msg.author.username}, you are not married to anyone.`)
 				else return msg.channel.send(`${msg.author.username}, that person is not married to anyone.`)
 			}
-			let user1: Discord.User
-			let user2: Discord.User
+			let user1: import("thunderstorm").User
+			let user2: import("thunderstorm").User
 			if (row.user1 === msg.author.id) user1 = msg.author
 			else if (row.user2 === msg.author.id) user2 = msg.author
 			// @ts-ignore

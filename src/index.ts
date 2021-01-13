@@ -12,7 +12,7 @@ import fs from "fs"
 import path from "path"
 import events from "events"
 import SnowTransfer from "snowtransfer"
-import ThunderStorm from "thunderstorm"
+const ThunderStorm: typeof import("thunderstorm") = require("thunderstorm")
 import workers from "worker_threads"
 import ListenMoe from "listensomemoe"
 
@@ -23,7 +23,7 @@ import Amanda from "./modules/structures/Discord/Amanda"
 import config from "../config"
 import constants from "./constants.js"
 
-const GatewayWorker = new workers.Worker(path.join(__dirname, "./workers/gateway.js"))
+const GatewayWorker = new workers.Worker(path.join(__dirname, "../../workers/gateway.js"))
 const rest = new SnowTransfer(config.bot_token, { disableEveryone: true, baseHost: `${config.rest_server_protocol}://${config.rest_server_domain}` })
 const client = new Amanda({ snowtransfer: rest, disableEveryone: true })
 const youtube = new YouTube(config.yt_api_key)
@@ -82,8 +82,8 @@ const db = mysql.createPool({
 	// Utility files
 
 	reloader.watch([
-		...fs.readdirSync("./modules/utilities").filter(f => f.endsWith(".js")).map(f => `./modules/utilities/${f}`),
-		...fs.readdirSync("./modules/utilities/classes").filter(f => f.endsWith(".js")).map(f => `./modules/utilities/classes/${f}`)
+		...fs.readdirSync(`${__dirname}/modules/utilities`).filter(f => f.endsWith(".js")).map(f => `./modules/utilities/${f}`),
+		...fs.readdirSync(`${__dirname}/modules/utilities/classes`).filter(f => f.endsWith(".js")).map(f => `./modules/utilities/classes/${f}`)
 	])
 
 	// IPC

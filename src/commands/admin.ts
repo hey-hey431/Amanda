@@ -1,6 +1,6 @@
 // @ts-check
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import fetch from "node-fetch"
 import util from "util"
 import path from "path"

@@ -2,7 +2,7 @@
 // @ts-check
 
 import fetch from "node-fetch"
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import path from "path"
 import { encode } from "@lavalink/encoding"
 // @ts-ignore
@@ -18,13 +18,13 @@ reloader.sync("./modules/utilities/index.js", utils)
 const vscbs: Array<any> = []
 
 class VoiceStateCallback {
-	msg: Discord.Message
+	msg: import("thunderstorm").Message
 	guildID: string
 	timeout: NodeJS.Timeout
-	callback: (voiceChannel: Discord.VoiceChannel | null) => any
+	callback: (voiceChannel: import("thunderstorm").VoiceChannel | null) => any
 	active: boolean
 
-	constructor(msg: Discord.Message, timeoutMs: number, callback: (voiceChannel: Discord.VoiceChannel | null) => any) {
+	constructor(msg: import("thunderstorm").Message, timeoutMs: number, callback: (voiceChannel: import("thunderstorm").VoiceChannel | null) => any) {
 		this.msg = msg
 		this.guildID = msg.guild!.id
 		this.timeout = setTimeout(() => this.cancel(), timeoutMs)
@@ -40,7 +40,7 @@ class VoiceStateCallback {
 		const index = common.voiceStateCallbackManager.callbacks.indexOf(this)
 		if (index != -1) common.voiceStateCallbackManager.callbacks.splice(index, 1)
 	}
-	async trigger(voiceChannel: Discord.VoiceChannel) {
+	async trigger(voiceChannel: import("thunderstorm").VoiceChannel) {
 		let lang
 		const selflang = await utils.sql.get("SELECT * FROM SettingsSelf WHERE keyID =? AND setting =?", [this.msg.author.id, "language"])
 		if (selflang) lang = await utils.getLang(this.msg.author.id, "self")
@@ -386,7 +386,7 @@ const common = {
 	},
 
 	inserters: {
-		handleSong: async function(song: import("./songtypes").Song, textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, insert: boolean, context?: Discord.Message) {
+		handleSong: async function(song: import("./songtypes").Song, textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, insert: boolean, context?: import("thunderstorm").Message) {
 			const queue = await passthrough.queues.getOrCreate(voiceChannel, textChannel)
 			const result = queue.addSong(song, insert)
 			if (context instanceof Discord.Message && result == 0) {
@@ -394,19 +394,19 @@ const common = {
 			}
 		},
 
-		fromData: function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, data: any, insert: boolean, context?: Discord.Message) {
+		fromData: function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, data: any, insert: boolean, context?: import("thunderstorm").Message) {
 			const songTypes = require("./songtypes")
 			const song = songTypes.makeYouTubeSongFromData(data)
 			common.inserters.handleSong(song, textChannel, voiceChannel, insert, context)
 		},
 
-		fromDataArray: function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, data: any[], insert: boolean, context?: Discord.Message) {
+		fromDataArray: function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, data: any[], insert: boolean, context?: import("thunderstorm").Message) {
 			const songTypes = require("./songtypes")
 			const songs = data.map(item => songTypes.makeYouTubeSongFromData(item))
 			common.inserters.fromSongArray(textChannel, voiceChannel, songs, insert, context)
 		},
 
-		fromSongArray: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, songs: any[], insert: boolean, context?: Discord.Message) {
+		fromSongArray: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, songs: any[], insert: boolean, context?: import("thunderstorm").Message) {
 			if (insert) songs.reverse()
 			const queue = await passthrough.queues.getOrCreate(voiceChannel, textChannel)
 			const results = songs.map(song => {
@@ -417,7 +417,7 @@ const common = {
 			}
 		},
 
-		fromSearch: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, author: Discord.User, insert: boolean, search: string, lang: import("@amanda/lang").Lang) {
+		fromSearch: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, author: import("thunderstorm").User, insert: boolean, search: string, lang: import("@amanda/lang").Lang) {
 			const g = await utils.cacheManager.guilds.get(voiceChannel.guild.id, true, true)
 			// @ts-ignore
 			let tracks = await common.searchYouTube(search, g ? g.region : undefined)
@@ -436,7 +436,7 @@ const common = {
 			})
 		},
 
-		fromSoundCloudSearch: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, author: Discord.User, insert: boolean, search: string, lang: import("@amanda/lang").Lang) {
+		fromSoundCloudSearch: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, author: import("thunderstorm").User, insert: boolean, search: string, lang: import("@amanda/lang").Lang) {
 			const g = await utils.cacheManager.guilds.get(voiceChannel.guild.id, true, true)
 			let tracks: Array<{ track: string, info: import("../../typings/index").LavalinkInfo }>
 			try {
@@ -456,7 +456,7 @@ const common = {
 			})
 		},
 
-		fromSoundCloudLink: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, msg: Discord.Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
+		fromSoundCloudLink: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, msg: import("thunderstorm").Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
 			const g = await utils.cacheManager.guilds.get(voiceChannel.guild.id, true, true)
 			let tracks
 			try {
@@ -474,7 +474,7 @@ const common = {
 			}
 		},
 
-		fromSpotifyLink: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, msg: Discord.Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
+		fromSpotifyLink: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, msg: import("thunderstorm").Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
 			const songtypes = require("./songtypes")
 			let data
 			try {
@@ -488,7 +488,7 @@ const common = {
 			return common.inserters.fromSongArray(textChannel, voiceChannel, songs, insert, msg)
 		},
 
-		fromExternalLink: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, msg: Discord.Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
+		fromExternalLink: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, msg: import("thunderstorm").Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
 			const songtypes = require("./songtypes")
 			let data
 			try {
@@ -502,7 +502,7 @@ const common = {
 			return common.inserters.handleSong(song, textChannel, voiceChannel, insert, msg)
 		},
 
-		fromNewgroundsSearch: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, author: Discord.User, insert: boolean, search: string, lang: import("@amanda/lang").Lang) {
+		fromNewgroundsSearch: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, author: import("thunderstorm").User, insert: boolean, search: string, lang: import("@amanda/lang").Lang) {
 			let tracks: Array<{ href: string, image: string, title: string, author: string }>
 			try {
 				tracks = await common.newgrounds.search(search)
@@ -521,7 +521,7 @@ const common = {
 			})
 		},
 
-		fromNewgroundsLink: async function(textChannel: Discord.PartialChannel, voiceChannel: Discord.VoiceChannel, msg: Discord.Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
+		fromNewgroundsLink: async function(textChannel: import("thunderstorm").PartialChannel, voiceChannel: import("thunderstorm").VoiceChannel, msg: import("thunderstorm").Message, insert: boolean, link: string, lang: import("@amanda/lang").Lang) {
 			const songtypes = require("./songtypes")
 			let data
 			try {
@@ -653,7 +653,7 @@ const common = {
 
 	VoiceStateCallback,
 
-	getPromiseVoiceStateCallback: function(msg: Discord.Message, timeoutMs: number): Promise<Discord.VoiceChannel | null> {
+	getPromiseVoiceStateCallback: function(msg: import("thunderstorm").Message, timeoutMs: number): Promise<import("thunderstorm").VoiceChannel | null> {
 		return new Promise(resolve => {
 			new common.VoiceStateCallback(msg, timeoutMs, voiceChannel => resolve(voiceChannel))
 		})
@@ -665,11 +665,11 @@ const common = {
 	 * Returns a promise that eventually resolves to a voice channel, or null (if they didn't join in time)
 	 * **This responds to the user on failure, and also checks if the client has permission to join and speak.**
 	 */
-	detectVoiceChannel: async function(msg: Discord.Message, wait: boolean, lang: import("@amanda/lang").Lang): Promise<(Discord.VoiceChannel | null)> {
+	detectVoiceChannel: async function(msg: import("thunderstorm").Message, wait: boolean, lang: import("@amanda/lang").Lang): Promise<(import("thunderstorm").VoiceChannel | null)> {
 		// Already in a voice channel? Use that!
 		const state = await client.rain.cache.voiceState.get(msg.author.id, msg.guild!.id)
 		if (state) {
-			/** @type {Discord.VoiceChannel} */
+			/** @type {import("thunderstorm").VoiceChannel} */
 			// @ts-ignore
 			const cdata = await utils.cacheManager.channels.get(state.channel_id, true, true)
 			// @ts-ignore
@@ -699,7 +699,7 @@ const common = {
 	 * If it can, return the voice channel.
 	 * If it can't, send an error in chat and return null.
 	 */
-	verifyVoiceChannel: async function(voiceChannel: Discord.VoiceChannel, msg: Discord.Message, lang: import("@amanda/lang").Lang): Promise<(Discord.VoiceChannel | null)> {
+	verifyVoiceChannel: async function(voiceChannel: import("thunderstorm").VoiceChannel, msg: import("thunderstorm").Message, lang: import("@amanda/lang").Lang): Promise<(import("thunderstorm").VoiceChannel | null)> {
 		const perms = await utils.cacheManager.channels.permissionsFor({ id: voiceChannel.id, guild_id: voiceChannel.guild.id })
 		const viewable = await utils.cacheManager.channels.hasPermissions({ id: voiceChannel.id, guild_id: voiceChannel.guild.id }, "VIEW_CHANNEL", perms)
 		const joinable = await utils.cacheManager.channels.hasPermissions({ id: voiceChannel.id, guild_id: voiceChannel.guild.id }, "CONNECT", perms)
@@ -718,7 +718,7 @@ const common = {
 	/**
 	 * @param {Discord.VoiceState} state
 	 */
-	voiceStateUpdate: async function(state: Discord.VoiceState) {
+	voiceStateUpdate: async function(state: import("thunderstorm").VoiceState) {
 		if (!state.guildID) return // we should only process voice state updates that are in guilds
 		const queue = passthrough.queues.cache.get(state.guildID)
 
@@ -731,7 +731,7 @@ const common = {
 				queue.listeners.set(state.id, member)
 			} else if (queue) queue.listeners.delete(state.id)
 			// @ts-ignore
-			const vc: Discord.VoiceChannel = await utils.cacheManager.channels.get(state.channelID, true, true)
+			const vc: import("thunderstorm").VoiceChannel = await utils.cacheManager.channels.get(state.channelID, true, true)
 			// Trigger all callbacks for that user in that guild
 			common.voiceStateCallbackManager.getAll(state.id, state.guildID).forEach(s => s.trigger(vc))
 		} else {

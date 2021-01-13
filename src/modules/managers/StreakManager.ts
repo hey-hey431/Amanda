@@ -1,7 +1,7 @@
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
 class StreakManager {
-	public cache: Discord.Collection<string, { ID: string, command: string, amount: number, timeout?: NodeJS.Timeout }>
+	public cache: import("thunderstorm").Collection<string, { ID: string, command: string, amount: number, timeout?: NodeJS.Timeout }>
 	public destructionDurations: Map<string, number>
 
 	public constructor() {

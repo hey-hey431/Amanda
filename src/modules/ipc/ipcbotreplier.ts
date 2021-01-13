@@ -1,5 +1,6 @@
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import path from "path"
+// @ts-ignore
 import mixinDeep from "mixin-deep"
 
 import passthrough from "../../passthrough"
@@ -15,7 +16,7 @@ utils.addTemporaryListener(reloader.reloadEvent, "ipcreplier.js", path.basename(
 	})
 }, "once")
 
-function filterGuild(guild: Discord.Guild): import("../../typings/index").FilteredGuild {
+function filterGuild(guild: import("thunderstorm").Guild): import("../../typings/index").FilteredGuild {
 	return {
 		id: guild.id,
 		name: guild.name,

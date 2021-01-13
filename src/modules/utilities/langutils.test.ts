@@ -1,9 +1,10 @@
-const tap = require("tap")
-const passthrough = require("../fakebot")
+import tap from "tap"
+import passthrough from "../fakebot"
 
-const { replace } = require("./langutils")
+// @ts-ignore
+import { replace } from "./langutils"
 
-tap.test("replace", async childTest => {
+tap.test("replace", childTest => {
 	childTest.equal(replace("hello world", { username: "Cadence" }), "hello world", "no action")
 
 	childTest.equal(replace("%username", { username: "Cadence" }), "Cadence", "simple replace")
@@ -14,5 +15,6 @@ tap.test("replace", async childTest => {
 })
 
 tap.teardown(() => {
+	// @ts-ignore
 	passthrough.client.destroy()
 })

@@ -3,7 +3,7 @@
 /* eslint-disable no-empty-function */
 /* eslint-disable @typescript-eslint/no-empty-function */
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
 import passthrough from "../../passthrough"
 const { client, constants } = passthrough
@@ -79,7 +79,7 @@ const channelManager = {
 	 * @param string String to search channels by
 	 * @param self If the function should return `message`.channel
 	 */
-	find: function(message: Discord.Message, string: string, self?: boolean): Promise<Discord.TextChannel | Discord.VoiceChannel | null> {
+	find: function(message: import("thunderstorm").Message, string: string, self?: boolean): Promise<import("thunderstorm").TextChannel | import("thunderstorm").VoiceChannel | null> {
 		return new Promise(async (res) => {
 			if (await channelManager.typeOf(message.channel) === "dm") return res(null)
 			string = string.toLowerCase()
@@ -91,22 +91,22 @@ const channelManager = {
 				return res(d)
 			}
 			if (!string) {
-				if (self) return channelManager.get(message.channel.id, true, true).then(data => res(data as Discord.TextChannel))
+				if (self) return channelManager.get(message.channel.id, true, true).then(data => res(data as import("thunderstorm").TextChannel))
 				else return res(null)
 			} else {
 				const channeldata = await channelManager.filter(string, message.guild!.id)
 				if (!channeldata) return res(null)
-				const list: Array<Discord.TextChannel | Discord.VoiceChannel> = []
+				const list: Array<import("thunderstorm").TextChannel | import("thunderstorm").VoiceChannel> = []
 				const channels = channeldata.filter(chan => chan.type == 0 || chan.type == 2)
 				for (const chan of channels) {
 					if (list.find(item => item.id === chan.id) || list.length === 10) continue
-					list.push(channelManager.parse(chan) as Discord.TextChannel)
+					list.push(channelManager.parse(chan) as import("thunderstorm").TextChannel)
 				}
 				if (list.length == 1) return res(list[0])
 				if (list.length == 0) return res(null)
 				const embed = new Discord.MessageEmbed().setTitle("Channel selection").setDescription(list.map((item, i) => `${item.type == "voice" ? "<:voice:674569797278760961>" : "<:text:674569797278892032>"} ${i + 1}. ${item.name}`).join("\n")).setFooter(`Type a number between 1 - ${list.length}`).setColor(constants.standard_embed_color)
 				const selectmessage = await message.channel.send(await contentify(message.channel, embed))
-				const cb = (newmessage?: Discord.Message) => {
+				const cb = (newmessage?: import("thunderstorm").Message) => {
 					if (!newmessage) return res(null)
 					const index = Number(newmessage.content)
 					if (!index || !list[index - 1]) return onFail()
@@ -234,7 +234,7 @@ const userManager = {
 	 * @param string String to search users by
 	 * @param self If the function should return the `message` author's user Object
 	 */
-	find: function(message: Discord.Message, string: string, self = false): Promise<Discord.User | null> {
+	find: function(message: import("thunderstorm").Message, string: string, self = false): Promise<import("thunderstorm").User | null> {
 		return new Promise(async (res) => {
 			string = string.toLowerCase()
 			const match = /<@!?(\d+)>/.exec(string)
@@ -260,7 +260,7 @@ const userManager = {
 					if (validate(string)) {
 						let d
 						try {
-							d = await userManager.get(string, true) as Discord.User
+							d = await userManager.get(string, true) as import("thunderstorm").User
 						} catch (e) {
 							return res(null)
 						}
@@ -269,7 +269,7 @@ const userManager = {
 				}
 				const embed = new Discord.MessageEmbed().setTitle("User selection").setDescription(list.map((item, i) => `${i + 1}. ${item.tag}`).join("\n")).setFooter(`Type a number between 1 - ${list.length}`).setColor(constants.standard_embed_color)
 				const selectmessage = await message.channel.send(await contentify(message.channel, embed))
-				const cb = (newmessage?: Discord.Message) => {
+				const cb = (newmessage?: import("thunderstorm").Message) => {
 					if (!newmessage) return res(null)
 					const index = Number(newmessage.content)
 					if (!index || !list[index - 1]) return onFail()
@@ -327,7 +327,7 @@ const memberManager = {
 	 * @param string String to search members by
 	 * @param self If the function should return the `message` author's member Object
 	 */
-	find: function(message: Discord.Message, string: string, self = false): Promise<Discord.GuildMember | null> {
+	find: function(message: import("thunderstorm").Message, string: string, self = false): Promise<import("thunderstorm").GuildMember | null> {
 		return new Promise(async (res) => {
 			string = string.toLowerCase()
 			const match = /<@!?(\d+)>/.exec(string)
@@ -343,7 +343,7 @@ const memberManager = {
 			} else {
 				const memdata = await memberManager.filter(string, message.guild!.id)
 
-				const list: Array<Discord.GuildMember> = []
+				const list: Array<import("thunderstorm").GuildMember> = []
 				for (const member of memdata) {
 					if (list.find(item => item.id === member.id) || list.length === 10) continue
 					if (!member.user) member.user = await userManager.get(member.id, true, false)
@@ -353,7 +353,7 @@ const memberManager = {
 				if (list.length == 0) return res(null)
 				const embed = new Discord.MessageEmbed().setTitle("Member selection").setDescription(list.map((item, i) => `${i + 1}. ${item.user.tag}`).join("\n")).setFooter(`Type a number between 1 - ${list.length}`).setColor(constants.standard_embed_color)
 				const selectmessage = await message.channel.send(await contentify(message.channel, embed))
-				const cb = (newmessage?: Discord.Message) => {
+				const cb = (newmessage?: import("thunderstorm").Message) => {
 					if (!newmessage) return res(null)
 					const index = Number(newmessage.content)
 					if (!index || !list[index - 1]) return onFail()
@@ -399,12 +399,12 @@ const memberManager = {
 
 		return value
 	},
-	hasPermission: async function(userID: string, guildID: string, permission: number | keyof typeof permissionstable, permissions: { allow: number; deny: number }) {
+	hasPermission: async function(userID: string, guildID: string, permission: number | keyof typeof permissionstable, permissions?: { allow: number; deny: number }) {
 		if (!guildID) return true
 		if (!permissions) permissions = await memberManager.permissionsFor(userID, guildID)
 
 		if (permissions.allow & permissionstable["ADMINISTRATOR"]) return true
-		/** @type {Discord.Guild} */
+		/** @type {import("thunderstorm").Guild} */
 		// @ts-ignore
 		const g = await guildManager.get(guildID, true, true)
 		// @ts-ignore

@@ -1,35 +1,28 @@
 // @ts-check
 
-const Jimp = require("jimp")
-const crypto = require("crypto")
-/** @type {import("node-fetch").default} */
-// @ts-ignore
-const fetch = require("node-fetch")
-const Discord = require("thunderstorm")
+import Jimp from "jimp"
+import crypto from "crypto"
+import fetch from "node-fetch"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
-const passthrough = require("../passthrough")
+import passthrough from "../passthrough"
 const { constants, client, commands, reloader, weeb } = passthrough
 
 const responses = ["That's not strange at all...", "W-What? Why?", "I find it strange that you tried to do that...", "Ok then...", "Come on... Don't make yourself look like an idiot...", "Why even try?", "Oh...", "You are so weird...", "<:NotLikeCat:411364955493761044>"]
 
-const utils = require("../modules/utilities")
+import utils from "../modules/utilities"
 reloader.sync("./modules/utilities/index.js", utils)
 
-const cmds = [
+const cmds: Array<{ usage: string, description: string, aliases: Array<string>, category: string, examples: Array<string>, process: (msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) => any }> = [
 	{
 		usage: "<user 1> <user 2>",
 		description: "Ships two people",
 		aliases: ["ship"],
 		category: "interaction",
 		examples: ["ship PapiOphidian Cadence"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(utils.replace(lang.interaction.ship.prompts.guildOnly, { "username": msg.author.username }))
-			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild.id }, 0x00008000))) return msg.channel.send(lang.interaction.ship.prompts.permissionDenied)
+			if (!(await utils.cacheManager.channels.hasPermissions({ id: msg.channel.id, guild_id: msg.guild!.id }, 0x00008000))) return msg.channel.send(lang.interaction.ship.prompts.permissionDenied)
 			suffix = suffix.replace(/ +/g, " ")
 			const args = suffix.split(" ")
 			if (!args.length) return msg.channel.send(utils.replace(lang.interaction.ship.prompts.invalidUsers, { "username": msg.author.username }))
@@ -47,8 +40,8 @@ const cmds = [
 			await msg.channel.sendTyping()
 			const canvas = new Jimp(300, 100)
 			const [pfp1, pfp2, heart] = await Promise.all([
-				Jimp.read(mem1.user.displayAvatarURL({ format: "png" })),
-				Jimp.read(mem2.user.displayAvatarURL({ format: "png" })),
+				Jimp.read(mem1.user.displayAvatarURL({ format: "png" })!),
+				Jimp.read(mem2.user.displayAvatarURL({ format: "png" })!),
 				Jimp.read("./images/emojis/heart.png")
 			])
 
@@ -84,17 +77,12 @@ const cmds = [
 		aliases: ["bean"],
 		category: "interaction",
 		examples: ["bean PapiOphidian"],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
 		async process(msg, suffix, lang) {
 			if (await utils.cacheManager.channels.typeOf(msg.channel) === "dm") return msg.channel.send(utils.replace(lang.interaction.bean.prompts.guildOnly, { "username": msg.author.username }))
 			if (!suffix) return msg.channel.send(utils.replace(lang.interaction.bean.prompts.invalidUser, { "username": msg.author.username }))
 			const member = await utils.cacheManager.members.find(msg, suffix, true)
 			if (!member) return msg.channel.send(utils.replace(lang.interaction.bean.prompts.invalidUser, { "username": msg.author.username }))
-			if (member.id == client.user.id) return msg.channel.send("No u")
+			if (member.id == client.user!.id) return msg.channel.send("No u")
 			if (member.id == msg.author.id) return msg.channel.send(utils.replace(lang.interaction.bean.prompts.selfBean, { "username": msg.author.username }))
 			return msg.channel.send(utils.replace(lang.interaction.bean.returns.beaned, { "tag": `**${member.user.tag}**` }))
 		}
@@ -156,46 +144,25 @@ for (const source of interactionSources) {
 		aliases: [source.name],
 		category: "interaction",
 		examples: [`${source.name} Amanda`],
-		/**
-		 * @param {import("thunderstorm").Message} msg
-		 * @param {string} suffix
-		 * @param {import("@amanda/lang").Lang} lang
-		 */
-		process: (msg, suffix, lang) => doInteraction(msg, suffix, source, lang)
+		process: (msg: import("thunderstorm").Message, suffix: string, lang: import("@amanda/lang").Lang) => doInteraction(msg, suffix, source, lang)
 	}
 	cmds.push(newCommand)
 }
 
-const attempts = [
-	(type, g1, g2) => utils.sql.all("select url, GenderGifCharacters.gifid, count(GenderGifCharacters.gifid) as count from GenderGifsV2 inner join GenderGifCharacters on GenderGifsV2.gifid = GenderGifCharacters.gifid where type = ? and (((gender like ? or gender = '*') and importance = 0) or ((gender like ? or gender = '*') and importance = 1)) group by GenderGifCharacters.gifid having count(GenderGifCharacters.gifid) >= 2", [type, g1, g2]),
-	(type, g1, g2) => utils.sql.all("select url, GenderGifCharacters.gifid, count(GenderGifCharacters.gifid) as count from GenderGifsV2 inner join GenderGifCharacters on GenderGifsV2.gifid = GenderGifCharacters.gifid where type = ? and (((gender like ? or gender = '*') and importance = 0) or ((gender like ? or gender = '*') and importance = 1)) group by GenderGifCharacters.gifid having count(GenderGifCharacters.gifid) >= 2", [type, g2, g1]),
-	(type, g1, g2) => utils.sql.all("select url, GenderGifCharacters.gifid from GenderGifsV2 inner join GenderGifCharacters on GenderGifsV2.gifid = GenderGifCharacters.gifid where type = ? and (gender like ? or gender = '*')", [type, (g2 == "_" ? g1 : g2)])
-]
 
-const genderMap = new Map([
-	["474711440607936512", "f"],
-	["474711506551046155", "m"],
-	["474711526247366667", "n"],
-	["316829871206563840", "f"],
-	["316829948616638465", "m"]
-])
-
-/**
- * @param {Discord.Message} msg
- * @param {string} suffix
- * @param {{name: string, description: string, shortcut: string, footer?: string, traaOverride?: boolean, url?: () => Promise<string>}} source
- * @param {import("@amanda/lang").Lang} lang
- */
-async function doInteraction(msg, suffix, source, lang) {
+async function doInteraction(msg: import("thunderstorm").Message, suffix: string, source: {name: string, description: string, shortcut: string, footer?: string, traaOverride?: boolean, url?: () => Promise<string>}, lang: import("@amanda/lang").Lang) {
+	// @ts-ignore
 	if (msg.channel.type == "dm") return msg.channel.send(utils.replace(lang.interaction[source.name].prompts.dm, { "action": source.name }))
+	// @ts-ignore
 	if (!suffix) return msg.channel.send(utils.replace(lang.interaction[source.name].prompts.noUser, { "action": source.name }))
-	/** @type {Discord.GuildMember | string} */
-	let member = await utils.cacheManager.members.find(msg, suffix)
+	// @ts-ignore
+	let member: Discord.GuildMember | string = await utils.cacheManager.members.find(msg, suffix)
 	if (!member) member = suffix
 	let fetched
 	if (typeof member != "string") {
 		if (member.user.id == msg.author.id) return msg.channel.send(utils.arrayRandom(responses))
-		if (member.user.id == client.user.id) return msg.channel.send(utils.replace(lang.interaction[source.name].returns.amanda, { "username": msg.author.username }))
+		// @ts-ignore
+		if (member.user.id == client.user!.id) return msg.channel.send(utils.replace(lang.interaction[source.name].returns.amanda, { "username": msg.author.username }))
 		/* if (source.traaOverride) {
 			const g1 = msg.member.roles.cache.map(r => genderMap.get(r.id)).find(r => r) || "_"
 			const g2 = member.roles.cache.map(r => genderMap.get(r.id)).find(r => r) || "_"
@@ -225,30 +192,27 @@ async function doInteraction(msg, suffix, source, lang) {
 			})
 		} else if (source.shortcut == "weeb.sh") {
 			source.footer = "Powered by weeb.sh"
-			fetched = new Promise((resolve, reject) => {
+			fetched = new Promise((resolve) => {
 				// @ts-ignore
 				weeb.toph.getRandomImage(source.name, { nsfw: false, fileType: "gif" }).then(data => {
 					resolve(data.url)
 				})
 			})
-		} else if (source.shortcut == "durl") fetched = source.url()
+		} else if (source.shortcut == "durl") fetched = source.url!()
 		else fetched = Promise.reject(new Error("Shortcut didn't match a function."))
 	}
 	fetched.then(async url => {
 		const embed = new Discord.MessageEmbed()
+		// @ts-ignore
 			.setDescription(utils.replace(lang.interaction[source.name].returns.action, { "username": msg.author.username, "action": source.name, "mention": typeof member == "string" ? member : `<@${member.id}>` }))
-			.setImage(url)
+			.setImage(url as string)
 			.setColor(constants.standard_embed_color)
 		if (source.footer) embed.setFooter(source.footer)
 		return msg.channel.send(await utils.contentify(msg.channel, embed))
 	}).catch(error => { return msg.channel.send(`There was an error: \`\`\`\n${error}\`\`\``) })
 }
 
-/**
- * @param {string} type
- * @returns {Promise<string>}
- */
-async function getGif(type) {
+async function getGif(type: string) {
 	const gif = await utils.sql.get("SELECT * FROM InteractionGifs WHERE type =? ORDER BY RAND() LIMIT 1", type)
 	return gif.url
 }

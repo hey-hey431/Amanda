@@ -1,7 +1,7 @@
 /* eslint-disable no-empty-function */
 /* eslint-disable @typescript-eslint/no-empty-function */
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 import path from "path"
 import Lang from "@amanda/lang"
 import ReactionMenu from "@amanda/reactionmenu"
@@ -57,11 +57,11 @@ class FrequencyUpdater {
 
 export class Queue {
 	public manager: import("../../modules/managers/QueueManager")
-	public guild: Discord.Guild
-	public voiceChannel: Discord.VoiceChannel
-	public textChannel: Discord.PartialChannel
+	public guild: import("thunderstorm").Guild
+	public voiceChannel: import("thunderstorm").VoiceChannel
+	public textChannel: import("thunderstorm").PartialChannel
 	public wrapper: QueueWrapper
-	public listeners: Discord.Collection<string, Discord.GuildMember> = new Discord.Collection()
+	public listeners: import("thunderstorm").Collection<string, import("thunderstorm").GuildMember> = new Discord.Collection()
 	public songStartTime = 0
 	public pausedAt: number | null = null
 	public songs: Array<import("./songtypes").Song> = []
@@ -72,10 +72,10 @@ export class Queue {
 	public langCache: import("@amanda/lang").Lang | undefined = undefined
 	public audit: Array<{ action: string; platform: string; user: string }> | undefined
 	public voiceLeaveTimeout: import("../../modules/utilities/classes/BetterTimeout")
-	public voiceLeaveWarningMessagePromise: Promise<Discord.Message> | null
+	public voiceLeaveWarningMessagePromise: Promise<import("thunderstorm").Message> | null
 	public nodeID: string
 	public player: Promise<import("lavacord").Player>
-	public np: Discord.Message | null
+	public np: import("thunderstorm").Message | null
 	public npMenu: ReactionMenu | null
 	public npUpdater: FrequencyUpdater
 	public dissolved = false
@@ -84,7 +84,7 @@ export class Queue {
 	public pitchAmount = 1
 	public speedAmount = 1
 
-	constructor(manager: typeof queues, voiceChannel: Discord.VoiceChannel, textChannel: Discord.PartialChannel, guild: Discord.Guild, host: string | null = null) {
+	constructor(manager: typeof queues, voiceChannel: import("thunderstorm").VoiceChannel, textChannel: import("thunderstorm").PartialChannel, guild: import("thunderstorm").Guild, host: string | null = null) {
 		this.manager = manager as import("../../modules/managers/QueueManager")
 		this.guild = guild
 		this.voiceChannel = voiceChannel
@@ -112,7 +112,7 @@ export class Queue {
 			node: host
 		})
 		this.addPlayerListeners()
-		/** @type {Discord.Message} */
+		/** @type {import("thunderstorm").Message} */
 		this.np = null
 		this.npMenu = null
 		this.npUpdater = new FrequencyUpdater(async () => {
@@ -651,25 +651,25 @@ export class Queue {
 		if (this.npMenu) this.npMenu.destroy(true, "text")
 		// @ts-ignore
 		this.npMenu = new ReactionMenu(this.np, client, [
-			{ emoji: "⏯", remove: "user", actionType: "js", actionData: (msg, emoji, user) => {
-				if (!this.listeners.has(user!.id)) return
-				this.audit!.push({ action: this.isPaused ? "Queue Resume" : "Queue Pause", platform: "Discord", user: user!.tag })
+			{ emoji: "⏯", remove: "user", actionType: "js", actionData: (msg: import("thunderstorm").Message, emoji: { id: string, name: string }, user: import("thunderstorm").User) => {
+				if (!this.listeners.has(user.id)) return
+				this.audit!.push({ action: this.isPaused ? "Queue Resume" : "Queue Pause", platform: "Discord", user: user.tag })
 				this.wrapper.togglePlaying("reaction")
 			} },
-			{ emoji: "⏭", remove: "user", actionType: "js", actionData: (msg, emoji, user) => {
-				if (!this.listeners.has(user!.id)) return
-				this.audit!.push({ action: "Queue Skip", platform: "Discord", user: user!.tag })
+			{ emoji: "⏭", remove: "user", actionType: "js", actionData: (msg: import("thunderstorm").Message, emoji: { id: string, name: string }, user: import("thunderstorm").User) => {
+				if (!this.listeners.has(user.id)) return
+				this.audit!.push({ action: "Queue Skip", platform: "Discord", user: user.tag })
 				this.wrapper.skip()
 			} },
-			{ emoji: "⏹", remove: "user", actionType: "js", actionData: (msg, emoji, user) => {
-				if (!this.listeners.has(user!.id)) return
-				this.audit!.push({ action: "Queue Destroy", platform: "Discord", user: user!.tag })
+			{ emoji: "⏹", remove: "user", actionType: "js", actionData: (msg: import("thunderstorm").Message, emoji: { id: string, name: string }, user: import("thunderstorm").User) => {
+				if (!this.listeners.has(user.id)) return
+				this.audit!.push({ action: "Queue Destroy", platform: "Discord", user: user.tag })
 				this.wrapper.stop()
 			} }
 		])
 	}
 
-	async voiceStateUpdate(newState: Discord.VoiceState) {
+	async voiceStateUpdate(newState: import("thunderstorm").VoiceState) {
 		const lang = await this.getLang()
 		// Update own channel
 		if (newState.id == client.user!.id && newState.channelID && newState.channelID !== this.voiceChannel.id) {
@@ -678,7 +678,7 @@ export class Queue {
 		}
 		const count = this.listeners.filter(item => item.user && !item.user.bot).size
 		if (!count) {
-			let mems: Array<Discord.GuildMember>
+			let mems: Array<import("thunderstorm").GuildMember>
 			if (newState.channelID) {
 				const indexes = await client.rain.cache.voiceState.getIndexMembers()
 				const filtered = []
@@ -790,9 +790,9 @@ export class QueueWrapper {
 		this.queue.stop()
 	}
 	/**
-	 * @param {Discord.PartialChannel} channel
+	 * @param {import("thunderstorm").PartialChannel} channel
 	 */
-	async showRelated(channel: Discord.Message["channel"]) {
+	async showRelated(channel: import("thunderstorm").Message["channel"]) {
 		if (!this.queue.songs[0]) return // failsafe. how did this happen? no idea. just do nothing.
 		if (this.queue.songs[0].typeWhileGetRelated) await channel.sendTyping()
 		const content = await this.queue.songs[0].showRelated()
@@ -850,9 +850,9 @@ export class QueueWrapper {
 		}
 	}
 	/**
-	 * @param {Discord.PartialChannel} channel
+	 * @param {import("thunderstorm").PartialChannel} channel
 	 */
-	async showInfo(channel: Discord.Message["channel"]) {
+	async showInfo(channel: import("thunderstorm").PartialChannel) {
 		const content = await this.queue.songs[0].showInfo()
 		channel.send(content)
 	}

@@ -1,7 +1,7 @@
 /* eslint-disable no-async-promise-executor */
 // @ts-check
 
-import Discord from "thunderstorm"
+const Discord: typeof import("thunderstorm") = require("thunderstorm")
 
 import sql from "./sql"
 
@@ -10,7 +10,7 @@ import { shortTime } from "./time"
 import passthrough from "../../passthrough"
 const { client } = passthrough
 
-export function userFlagEmojis(user: Discord.User): Array<string> {
+export function userFlagEmojis(user: import("thunderstorm").User): Array<string> {
 	const flags = user.flags // All of these emojis are from Papi's Dev House.
 	const arr: Array<string> = [] // The emojis are pushed to the array in order of which they'd appear in Discord.
 	if (!flags) return arr
@@ -31,7 +31,7 @@ export function testFlag(flags: number, flag: number) {
 	return (flags & flag) == flag
 }
 
-export function createMessageCollector(filter: { channelID?: string; userIDs?: Array<string>; timeout?: number; matches?: number; test?: (message?: Discord.Message) => boolean }, callback: (message?: Discord.Message) => any, onFail?: () => any) {
+export function createMessageCollector(filter: { channelID?: string; userIDs?: Array<string>; timeout?: number; matches?: number; test?: (message?: import("thunderstorm").Message) => boolean }, callback: (message?: import("thunderstorm").Message) => any, onFail?: () => any) {
 	let timerdur = (1000 * 60), maxMatches = 1
 	if (filter.timeout) timerdur = filter.timeout
 	if (filter.matches) maxMatches = filter.matches
@@ -47,7 +47,7 @@ export function createMessageCollector(filter: { channelID?: string; userIDs?: A
 	}
 	client.on("message", listener)
 
-	async function listener(message: Discord.Message) {
+	async function listener(message: import("thunderstorm").Message) {
 		await resolveWebhookMessageAuthor(message)
 		if (message.author.bot) return
 		if (filter.channelID && message.channel.id !== filter.channelID) return
@@ -85,7 +85,7 @@ export function emojiURL(id: string, animated = false) {
 	return `https://cdn.discordapp.com/emojis/${id}.${ext}`
 }
 
-export async function resolveWebhookMessageAuthor(msg: Discord.Message) {
+export async function resolveWebhookMessageAuthor(msg: import("thunderstorm").Message) {
 	const { cacheManager } = require("./cachemanager") // lazy require
 	if (!msg.webhookID) return null
 	const row = await sql.get(
@@ -94,7 +94,7 @@ export async function resolveWebhookMessageAuthor(msg: Discord.Message) {
 		[msg.webhookID, msg.author.username]
 	)
 	if (!row) return null
-	let newAuthor: Discord.User
+	let newAuthor: import("thunderstorm").User
 	let newUserData
 	await cacheManager.users.get(row.userID, true).then((m: any) => {
 		// @ts-ignore
@@ -116,10 +116,10 @@ export async function resolveWebhookMessageAuthor(msg: Discord.Message) {
 }
 
 /**
- * @param {Discord.PartialChannel} channel
- * @param {string|Discord.MessageEmbed} content
+ * @param {import("thunderstorm").PartialChannel} channel
+ * @param {string|import("thunderstorm").MessageEmbed} content
  */
-export async function contentify(channel: Discord.PartialChannel, content: string | Discord.MessageEmbed) {
+export async function contentify(channel: import("thunderstorm").PartialChannel, content: string | import("thunderstorm").MessageEmbed) {
 	const { cacheManager } = require("./cachemanager") // lazy require
 	let value = ""
 	if (content instanceof Discord.MessageEmbed) {
@@ -135,7 +135,7 @@ export async function contentify(channel: Discord.PartialChannel, content: strin
 	return value.replace(/\[(.+?)\]\((https?:\/\/.+?)\)/gs, "$1: $2")
 }
 
-export async function rateLimiter(id: string, msg: Discord.Message): Promise<{ allowed: boolean, ban?: "temporary" | "permanent", reason?: string }> {
+export async function rateLimiter(id: string, msg: import("thunderstorm").Message): Promise<{ allowed: boolean, ban?: "temporary" | "permanent", reason?: string }> {
 	const banned = await sql.get("SELECT * FROM Bans WHERE userID =?", id)
 	const tempmsg = `${id === msg.author.id ? `${msg.author.tag}, you are` : "That person is"} temporarily banned from using commands.`
 	if (banned) {
