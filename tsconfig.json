@@ -1,27 +1,31 @@
 {
 	"compilerOptions": {
 		"allowSyntheticDefaultImports": true,
+		"allowJs": true,
+		"checkJs": true,
 		"esModuleInterop": true,
 		"alwaysStrict": true,
 		"declaration": true,
 		"emitDecoratorMetadata": true,
 		"experimentalDecorators": true,
-		"strictNullChecks": false,
 		"strict": true,
 		"incremental": true,
-		"lib": ["esnext"],
+		"lib": ["esnext", "dom"],
 		"module": "commonjs",
 		"moduleResolution": "node",
-		"noUnusedLocals": true,
+		"noUnusedLocals": false,
 		"outDir": "./dist",
 		"pretty": true,
-		"removeComments": false,
+		"removeComments": true,
 		"resolveJsonModule": true,
-		"sourceMap": true,
+		"sourceMap": false,
 		"strictFunctionTypes": true,
 		"strictBindCallApply": true,
-		"target": "esnext",
-		"types": ["node"]
+		"strictNullChecks": true,
+		"target": "ES2019",
+		"types": ["node"],
+		"typeRoots": ["./src/typings", "./node_modules/@types"]
 	},
-	"exclude": ["node_modules"]
+	"include": ["src"],
+	"exclude": ["./node_modules"]
 }

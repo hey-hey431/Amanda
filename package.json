@@ -5,7 +5,8 @@
   "main": "index.js",
   "author": "PapiOphidian",
   "scripts": {
-    "start": "node --optimize_for_size index.js",
+    "compile": "tsc -p .",
+    "start": "node --expose-gc --optimize_for_size index.js",
     "website": "cd website && node server.js",
     "test": "tap"
   },
@@ -15,7 +16,7 @@
     "npm": "6.9.0"
   },
   "dependencies": {
-    "@amanda/commandmanager": "github:AmandaDiscord/CommandManager#b32eedcf19f130d74ca2319096366ad42c0d28b5",
+    "@amanda/commandmanager": "github:AmandaDiscord/CommandManager#42844806ba205944fa34514ff5705f456d9a2750",
     "@amanda/discordtypings": "github:AmandaDiscord/DiscordTypings#b20be3850a9af0fc7d7109516f3b529a2ef66164",
     "@amanda/lang": "github:AmandaDiscord/Lang#70c61cac04eeac5d472d2b93bdcf5bd92d0641c1",
     "@amanda/reactionmenu": "github:AmandaDiscord/ReactionMenu#8def0a2cd6174cef0d96e664ded19c8baadbb6d0",
@@ -47,9 +48,14 @@
     "thunderstorm": "github:AmandaDiscord/ThunderStorm#274c4fb14bfdcbcaa7fd38afc252031fcda222d1"
   },
   "devDependencies": {
-    "@types/mysql2": "github:types/mysql2#d4ef3b2292f328049f7e4c545f6adab7d6a350a9",
-    "@types/node": "^14.14.3",
+    "@typescript-eslint/eslint-plugin": "^4.13.0",
+    "@typescript-eslint/parser": "^4.13.0",
+    "@types/express": "^4.17.11",
+    "@types/mysql2": "github:types/mysql2",
+    "@types/node": "^14.14.20",
     "@types/node-fetch": "^2.5.7",
+    "@types/node-ipc": "^9.1.3",
+    "@types/tap": "^14.10.1",
     "eslint": "^7.17.0",
     "tap": "^14.11.0",
     "typescript": "~4.1.3"
