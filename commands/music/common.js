@@ -14,6 +14,8 @@ const { client, reloader, config, constants } = passthrough
 const utils = require("../../modules/utilities")
 reloader.sync("./modules/utilities/index.js", utils)
 
+const fakeAgent = `Mozilla/5.0 (Server; NodeJS ${process.version}; rv:1.0) Neko/1.0 (KHTML, like Gecko) Amanda/1.0`
+
 class VoiceStateCallback {
 	/**
 	 * @param {Discord.Message} msg
@@ -698,7 +700,7 @@ const common = {
 			let text
 			// eslint-disable-next-line no-useless-catch
 			try {
-				text = await c(url).header("User-Agent", `Mozilla/5.0 (Server; NodeJS ${process.version}; rv:1.0) Neko/1.0 (KHTML, like Gecko) Amanda/1.0`).send().then(res => res.text())
+				text = await c(url).header("User-Agent", fakeAgent).send().then(res => res.text())
 			} catch (e) {
 				console.error(e)
 				throw e
@@ -737,7 +739,7 @@ const common = {
 		search: async function(text) {
 			let html
 			try {
-				html = await c(`https://newgrounds.com/search/conduct/audio?suitables=etm&c=3&terms=${encodeURIComponent(text)}`).send().then(res => res.text())
+				html = await c(`https://www.newgrounds.com/search/conduct/audio?suitables=etm&c=3&terms=${encodeURIComponent(text)}`).send().then(res => res.text())
 			} catch(e) {
 				console.error(e)
 				throw e
@@ -801,7 +803,7 @@ const common = {
 			const ID = link.match(/https:\/\/(?:www\.)?newgrounds\.com\/audio\/listen\/([\d\w]+)/)[1]
 			let data
 			try {
-				data = await c(`https://newgrounds.com/audio/load/${ID}/3`, "get").header("x-requested-with", "XMLHttpRequest").send().then(d => d.json())
+				data = await c(`https://www.newgrounds.com/audio/load/${ID}/3`, "get").header("x-requested-with", "XMLHttpRequest").send().then(d => d.json())
 			} catch {
 				throw new Error("Cannot extract NewGrounds track info")
 			}
